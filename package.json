@@ -10,9 +10,7 @@
   "license": "MIT",
   "author": "Kimi Agent",
   "type": "module",
-  "workspaces": [
-    "packages/*"
-  ],
+  "workspaces": ["packages/*"],
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
@@ -37,5 +35,11 @@
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,md,yml,yaml}": "biome check --write"
+  },
+  "allowScripts": {
+    "@biomejs/biome@1.8.3": true,
+    "@vscode/vsce-sign@2.0.9": true,
+    "better-sqlite3@11.10.0": true,
+    "esbuild@0.21.5": true
   }
 }
