@@ -3,12 +3,66 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "./out/extension.js",
   "scripts": {
     "build": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "package": "vsce package --no-dependencies"
+  },
+  "activationEvents": ["onStartupFinished"],
+  "contributes": {
+    "commands": [
+      {
+        "command": "mssgs.openMessenger",
+        "title": "Open Messenger",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.addAccount",
+        "title": "Add Account…",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.signOut",
+        "title": "Sign Out",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.markAllAsRead",
+        "title": "Mark All as Read",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.archiveConversation",
+        "title": "Archive Conversation…",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.searchMessages",
+        "title": "Search Messages…",
+        "category": "mssgs"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "mssgs",
+          "title": "mssgs",
+          "icon": "$(comment-discussion)"
+        }
+      ]
+    },
+    "views": {
+      "mssgs": [
+        {
+          "type": "webview",
+          "id": "mssgs.messenger",
+          "name": "Messenger"
+        }
+      ]
+    }
   },
   "dependencies": {
     "matrix-js-sdk": "^34.0.0",
