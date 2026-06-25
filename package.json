@@ -1,0 +1,41 @@
+{
+  "name": "mssgs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Beeper-like unified messaging inside VSCode",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/<user>/mssgs.git"
+  },
+  "license": "MIT",
+  "author": "Kimi Agent",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "lint": "biome check .",
+    "lint:fix": "biome check . --write",
+    "format": "biome format . --write",
+    "typecheck": "npm run typecheck --workspaces",
+    "test": "npm run test --workspaces",
+    "build": "npm run build --workspaces",
+    "package": "npm run build && npm run package --workspace=packages/extension",
+    "vscode:prepublish": "npm run package",
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "1.8.3",
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,md,yml,yaml}": "biome check --write"
+  }
+}
