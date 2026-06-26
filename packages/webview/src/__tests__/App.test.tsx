@@ -80,6 +80,19 @@ describe('App', () => {
     expect(useMessengerStore.getState().activeConversationId).toBe('conv-1');
   });
 
+  it('renders the thread view when a conversation is active', async () => {
+    act(() => {
+      seedConversations();
+    });
+
+    render(<App />);
+
+    await userEvent.click(screen.getByText('Alice'));
+
+    expect(screen.queryByText('Welcome to mssgs')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Message input')).toBeInTheDocument();
+  });
+
   it('filters conversations by search query', async () => {
     act(() => {
       seedConversations();

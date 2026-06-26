@@ -230,3 +230,141 @@ describe('InMemorySyncLayer', () => {
     expect(layer.snapshot()).toEqual(snapshot);
   });
 });
+
+describe('messengerStore thread actions', () => {
+  beforeEach(() => {
+    useMessengerStore.setState(createInitialState());
+  });
+
+  it('sendMessage creates an optimistic outgoing message', () => {
+    useMessengerStore.getState().setAccounts([account]);
+    useMessengerStore.getState().upsertConversation(conversation);
+
+    const messageId = useMessengerStore.getState().sendMessage({
+      conversationId: conversation.id,
+      text: 'Hi there',
+    });
+
+    const state = useMessengerStore.getState();
+    const message = state.messages[messageId];
+    expect(message).toBeDefined();
+    expect(message.text).toBe('Hi there');
+    expect(message.isFromMe).toBe(true);
+    expect(message.status).toBe('sending');
+    expect(conversation.id).toBe(message.conversationId);
+    expect(state.conversations[conversation.id].lastMessageId).toBe(messageId);
+  });
+
+  it('sendMessage includes replyToId and attachments', () => {
+    useMessengerStore.getState().setAccounts([account]);
+    useMessengerStore.getState().upsertConversation(conversation);
+
+    const messageId = useMessengerStore.getState().sendMessage({
+      conversationId: conversation.id,
+      text: 'See attached',
+      replyToId: 'reply-target',
+      attachments: [
+        {
+          id: 'att-1',
+          type: 'image',
+          url: 'data:image/png;base64,abc',
+          name: 'photo.png',
+          mimeType: 'image/png',
+          size: 1234,
+          createdAt: now,
+        },
+      ],
+    });
+
+    const message = useMessengerStore.getState().messages[messageId];
+    expect(message.replyToId).toBe('reply-target');
+    expect(message.attachments).toHaveLength(1);
+    expect(message.attachments[0].name).toBe('photo.png');
+  });
+
+  it('editMessage updates text and updatedAt', () => {
+    useMessengerStore.getState().upsertConversation(conversation);
+    const message = makeMessage();
+    useMessengerStore.getState().upsertMessage(message);
+
+    useMessengerStore.getState().editMessage(message.id, 'Updated text');
+
+    expect(useMessengerStore.getState().messages[message.id].text).toBe('Updated text');
+    expect(useMessengerStore.getState().messages[message.id].updatedAt).not.toBe(message.createdAt);
+  });
+
+  it('deleteMessage removes the message and updates lastMessageId', () => {
+    useMessengerStore.getState().upsertConversation(conversation);
+    const first = makeMessage({
+      id: 'msg-first',
+      text: 'First',
+      createdAt: '2024-01-01T00:00:00Z',
+    });
+    const second = makeMessage({
+      id: 'msg-second',
+      text: 'Second',
+      createdAt: '2024-01-01T00:01:00Z',
+    });
+    useMessengerStore.getState().upsertMessage(first);
+    useMessengerStore.getState().upsertMessage(second);
+
+    useMessengerStore.getState().deleteMessage(second.id);
+
+    const state = useMessengerStore.getState();
+    expect(state.messages[second.id]).toBeUndefined();
+    expect(state.conversations[conversation.id].lastMessageId).toBe(first.id);
+  });
+
+  it('addReaction and removeReaction manage reactions', () => {
+    useMessengerStore.getState().upsertConversation(conversation);
+    const message = makeMessage();
+    useMessengerStore.getState().upsertMessage(message);
+
+    useMessengerStore.getState().addReaction(message.id, '👍', 'user-1');
+    expect(useMessengerStore.getState().messages[message.id].reactions).toHaveLength(1);
+
+    useMessengerStore.getState().addReaction(message.id, '👍', 'user-1');
+    expect(useMessengerStore.getState().messages[message.id].reactions).toHaveLength(1);
+
+    useMessengerStore.getState().removeReaction(message.id, '👍', 'user-1');
+    expect(useMessengerStore.getState().messages[message.id].reactions).toHaveLength(0);
+  });
+
+  it('setTyping adds and removes typing users per conversation', () => {
+    useMessengerStore.getState().setTyping('conv-1', 'user-1', true);
+    expect(useMessengerStore.getState().typing['conv-1']).toEqual(['user-1']);
+
+    useMessengerStore.getState().setTyping('conv-1', 'user-2', true);
+    expect(useMessengerStore.getState().typing['conv-1']).toEqual(['user-1', 'user-2']);
+
+    useMessengerStore.getState().setTyping('conv-1', 'user-1', false);
+    expect(useMessengerStore.getState().typing['conv-1']).toEqual(['user-2']);
+
+    useMessengerStore.getState().setTyping('conv-1', 'user-2', false);
+    expect(useMessengerStore.getState().typing['conv-1']).toBeUndefined();
+  });
+
+  it('startEditing and stopEditing manage the editing message id', () => {
+    useMessengerStore.getState().upsertConversation(conversation);
+    const message = makeMessage();
+    useMessengerStore.getState().upsertMessage(message);
+
+    useMessengerStore.getState().startEditing(message.id);
+    expect(useMessengerStore.getState().editingMessageId).toBe(message.id);
+
+    useMessengerStore.getState().stopEditing();
+    expect(useMessengerStore.getState().editingMessageId).toBeNull();
+  });
+
+  it('setMessageStatus updates message status', () => {
+    useMessengerStore.getState().upsertConversation(conversation);
+    const message = makeMessage({ status: 'sending' });
+    useMessengerStore.getState().upsertMessage(message);
+
+    useMessengerStore.getState().setMessageStatus(message.id, 'sent');
+    expect(useMessengerStore.getState().messages[message.id].status).toBe('sent');
+
+    useMessengerStore.getState().setMessageStatus(message.id, 'failed');
+    expect(useMessengerStore.getState().messages[message.id].status).toBe('failed');
+  });
+});
