@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { MssgsEvent } from '../../../extension/src/shared/messages';
 
 type Theme = 'light' | 'dark';
 
@@ -30,6 +31,10 @@ function resolveTheme(): Theme {
   }
 
   return 'light';
+}
+
+function eventThemeToUiTheme(kind: 'light' | 'dark' | 'highContrast' | 'highContrastLight'): Theme {
+  return kind === 'light' || kind === 'highContrastLight' ? 'light' : 'dark';
 }
 
 export interface UseThemeReturn {
@@ -75,15 +80,40 @@ export function useTheme(): UseThemeReturn {
     observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
 
     const handleMessage = (event: MessageEvent<unknown>): void => {
+      const data = event.data;
+      if (typeof data !== 'object' || data === null) {
+        return;
+      }
+
+      // Legacy direct themeChange message (kept for compatibility).
       if (
-        typeof event.data === 'object' &&
-        event.data !== null &&
-        'type' in event.data &&
-        event.data.type === 'themeChange' &&
-        'theme' in event.data &&
-        (event.data.theme === 'light' || event.data.theme === 'dark')
+        'type' in data &&
+        data.type === 'themeChange' &&
+        'theme' in data &&
+        (data.theme === 'light' || data.theme === 'dark')
       ) {
-        applyTheme(event.data.theme);
+        applyTheme(data.theme);
+        return;
+      }
+
+      // Current extension event format: { type: 'event', eventType: 'theme', payload: { kind } }
+      const mssgsEvent = data as MssgsEvent | undefined;
+      if (
+        mssgsEvent?.type === 'event' &&
+        mssgsEvent.eventType === 'theme' &&
+        typeof mssgsEvent.payload === 'object' &&
+        mssgsEvent.payload !== null &&
+        'kind' in mssgsEvent.payload
+      ) {
+        const kind = mssgsEvent.payload.kind;
+        if (
+          kind === 'light' ||
+          kind === 'dark' ||
+          kind === 'highContrast' ||
+          kind === 'highContrastLight'
+        ) {
+          applyTheme(eventThemeToUiTheme(kind));
+        }
       }
     };
     window.addEventListener('message', handleMessage);

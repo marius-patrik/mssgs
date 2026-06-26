@@ -7,14 +7,15 @@ import type {
 } from '../../../extension/src/shared/messages';
 import { onMessage, postMessage } from './vscodeApi';
 
-let requestCounter = 0;
-
-function generateRequestId(): string {
-  requestCounter += 1;
-  return `mssgs-req-${requestCounter}`;
+function generateInstancePrefix(): string {
+  const array = new Uint8Array(4);
+  crypto.getRandomValues(array);
+  return Array.from(array, (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 export class MessengerClient {
+  private prefix = generateInstancePrefix();
+  private counter = 0;
   private pending = new Map<
     string,
     {
@@ -44,7 +45,8 @@ export class MessengerClient {
     method: M,
     payload?: MssgsRequestMap[M]['payload'],
   ): Promise<MssgsRequestMap[M]['response']> {
-    const id = generateRequestId();
+    this.counter += 1;
+    const id = `mssgs-req-${this.prefix}-${this.counter}`;
     const request = { type: 'request' as const, id, method, payload };
 
     return new Promise<MssgsRequestMap[M]['response']>((resolve, reject) => {
