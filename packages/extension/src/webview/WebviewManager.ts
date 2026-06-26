@@ -37,6 +37,7 @@ export class WebviewManager {
   private panel: vscode.WebviewPanel | undefined;
   private view: vscode.WebviewView | undefined;
   private messageHandler?: (message: MssgsRequest) => void;
+  private pendingRequests = new Map<string, vscode.Webview>();
 
   constructor(private readonly extensionUri: vscode.Uri) {}
 
@@ -99,17 +100,24 @@ export class WebviewManager {
   }
 
   /**
-   * Posts a typed event to whichever webview surface is active.
+   * Posts a typed event to all active webview surfaces.
    */
   postEvent(event: MssgsEvent): void {
-    this.postMessage(event);
+    this.broadcast(event);
   }
 
   /**
-   * Posts a typed response to the webview.
+   * Posts a typed response to the webview that originated the request.
    */
   postResponse(response: MssgsResponse): void {
-    this.postMessage(response);
+    const webview = this.pendingRequests.get(response.id);
+    if (webview) {
+      this.pendingRequests.delete(response.id);
+      void webview.postMessage(response);
+      return;
+    }
+
+    this.broadcast(response);
   }
 
   /**
@@ -123,18 +131,20 @@ export class WebviewManager {
     });
   }
 
-  private postMessage(message: MssgsMessage): void {
-    const webview = this.panel?.webview ?? this.view?.webview;
-    if (!webview) {
-      return;
+  private broadcast(message: MssgsMessage): void {
+    if (this.panel) {
+      void this.panel.webview.postMessage(message);
     }
-    void webview.postMessage(message);
+    if (this.view) {
+      void this.view.webview.postMessage(message);
+    }
   }
 
   private attachWebview(webview: vscode.Webview): void {
     webview.onDidReceiveMessage(
       (message: MssgsMessage) => {
         if (message.type === 'request' && this.messageHandler) {
+          this.pendingRequests.set(message.id, webview);
           this.messageHandler(message);
         }
       },

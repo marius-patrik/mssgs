@@ -77,8 +77,10 @@ export const useMessengerStore = create<MessengerStore>()(
           ? state.messages[conversation.lastMessageId]
           : null;
 
-        if (!currentLastMessage || message.createdAt >= currentLastMessage.createdAt) {
+        const isLatest = !currentLastMessage || message.createdAt >= currentLastMessage.createdAt;
+        if (isLatest) {
           conversation.lastMessageId = message.id;
+          conversation.updatedAt = message.createdAt;
         }
 
         const wasUnreadIncoming = previous && !previous.isFromMe && previous.status !== 'read';
@@ -91,8 +93,6 @@ export const useMessengerStore = create<MessengerStore>()(
         } else if (previous && !wasUnreadIncoming && isUnreadIncoming) {
           conversation.unreadCount += 1;
         }
-
-        conversation.updatedAt = message.createdAt;
       }),
 
     setActiveConversationId: (id) =>
