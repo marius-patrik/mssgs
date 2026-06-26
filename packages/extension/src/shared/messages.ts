@@ -1,5 +1,12 @@
 import type { ServiceType } from './types.js';
 
+export interface AttachmentDraft {
+  name: string;
+  mimeType: string;
+  size: number;
+  dataUrl: string;
+}
+
 export interface WizardStep {
   stepId: string;
   title: string;
@@ -57,6 +64,43 @@ export interface MssgsRequestMap {
       step?: WizardStep;
       error: string | null;
     };
+  };
+  getMessages: {
+    payload: { conversationId: string };
+    response: { messages: unknown[] };
+  };
+  sendMessage: {
+    payload: {
+      conversationId: string;
+      text: string;
+      replyToId?: string;
+      attachments?: AttachmentDraft[];
+    };
+    response: { message: unknown };
+  };
+  editMessage: {
+    payload: { messageId: string; text: string };
+    response: { edited: boolean };
+  };
+  deleteMessage: {
+    payload: { messageId: string };
+    response: { deleted: boolean };
+  };
+  addReaction: {
+    payload: { messageId: string; emoji: string };
+    response: { reacted: boolean };
+  };
+  removeReaction: {
+    payload: { messageId: string; emoji: string };
+    response: { removed: boolean };
+  };
+  sendTyping: {
+    payload: { conversationId: string; isTyping: boolean };
+    response: { ok: boolean };
+  };
+  markAsRead: {
+    payload: { conversationId: string; messageIds?: string[] };
+    response: { marked: number };
   };
 }
 
