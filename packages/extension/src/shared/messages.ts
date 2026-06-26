@@ -1,3 +1,14 @@
+export type SetupServiceType = 'whatsapp' | 'telegram' | 'instagram' | 'imessage';
+
+export interface AccountSetupResponse {
+  sessionId: string;
+  status: 'pending' | 'qr' | 'link' | 'awaiting_input' | 'done' | 'error';
+  instructions: string;
+  qrData?: string;
+  link?: string;
+  error?: string;
+}
+
 export interface MssgsRequestMap {
   ping: { payload?: undefined; response: { ok: true } };
   getAccounts: { payload?: undefined; response: { accounts: unknown[] } };
@@ -5,6 +16,13 @@ export interface MssgsRequestMap {
   archiveConversation: { payload: { conversationId: string }; response: { archived: boolean } };
   markAllAsRead: { payload?: undefined; response: { marked: number } };
   searchMessages: { payload: { query: string }; response: { results: unknown[] } };
+  startAccountSetup: { payload: { service: SetupServiceType }; response: AccountSetupResponse };
+  getAccountSetupStatus: { payload: { sessionId: string }; response: AccountSetupResponse };
+  cancelAccountSetup: { payload: { sessionId: string }; response: { cancelled: boolean } };
+  completeAccountSetup: {
+    payload: { sessionId: string; code?: string };
+    response: { success: boolean; accountId?: string; error?: string };
+  };
 }
 
 export type MssgsMethod = keyof MssgsRequestMap;
