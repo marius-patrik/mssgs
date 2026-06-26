@@ -112,7 +112,7 @@ export class MatrixBackendConnection
       ? this.credentials.userId.slice(1).split(':')[0]
       : this.credentials.userId;
 
-    await client.login(localpart, this.credentials.password);
+    await client.loginWithPassword(localpart, this.credentials.password);
   }
 
   private attachListeners(client: MatrixClientLike): void {

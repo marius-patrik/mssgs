@@ -27,7 +27,9 @@ function createMockClient(overrides: Partial<MatrixClientLike> = {}): MatrixClie
     getRooms: vi.fn().mockReturnValue([]),
     getUserId: vi.fn().mockReturnValue('@user:example.com'),
     getAccessToken: vi.fn().mockReturnValue('token'),
-    login: vi.fn().mockResolvedValue({ userId: '@user:example.com', accessToken: 'token' }),
+    loginWithPassword: vi
+      .fn()
+      .mockResolvedValue({ userId: '@user:example.com', accessToken: 'token' }),
     loginWithToken: vi
       .fn()
       .mockResolvedValue({ userId: '@user:example.com', accessToken: 'token' }),
@@ -93,7 +95,7 @@ describe('MatrixBackendConnection', () => {
     };
     const client = createMockClient({
       getAccessToken: vi.fn().mockReturnValue(null),
-      login: vi.fn().mockResolvedValue({
+      loginWithPassword: vi.fn().mockResolvedValue({
         userId: '@user:example.com',
         accessToken: 'new-token',
         deviceId: 'device-id',
@@ -104,7 +106,7 @@ describe('MatrixBackendConnection', () => {
 
     await connection.connect();
 
-    expect(client.login).toHaveBeenCalledWith('user', 'secret');
+    expect(client.loginWithPassword).toHaveBeenCalledWith('user', 'secret');
     expect(passwordFactory.clients).toHaveLength(1);
   });
 

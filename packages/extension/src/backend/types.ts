@@ -91,7 +91,7 @@ export interface MatrixClientLike {
   getRooms(): RawMatrixRoom[];
   getUserId(): string | null;
   getAccessToken(): string | null;
-  login(username: string, password: string): Promise<MatrixLoginResponse>;
+  loginWithPassword(username: string, password: string): Promise<MatrixLoginResponse>;
   loginWithToken(token: string): Promise<MatrixLoginResponse>;
   initRustCrypto?: () => Promise<void>;
   on(event: string, listener: (...args: unknown[]) => void): void;
