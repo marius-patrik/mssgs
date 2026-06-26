@@ -29,6 +29,7 @@ const contact: Contact = {
 const conversation: Conversation = {
   id: '33333333-3333-3333-3333-333333333333',
   accountId: account.id,
+  service: account.service,
   type: 'direct',
   title: null,
   participantIds: [contact.id],

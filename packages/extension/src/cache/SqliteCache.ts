@@ -126,10 +126,11 @@ export class SqliteCache {
   syncConversation(conversation: Conversation): void {
     const parsed = ConversationSchema.parse(conversation);
     const stmt = this.db.prepare(
-      `INSERT INTO conversations (id, account_id, type, title, participant_ids, last_message_id, unread_count, is_archived, is_pinned, is_favorite, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO conversations (id, account_id, service, type, title, participant_ids, last_message_id, unread_count, is_archived, is_pinned, is_favorite, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          account_id=excluded.account_id,
+         service=excluded.service,
          type=excluded.type,
          title=excluded.title,
          participant_ids=excluded.participant_ids,
@@ -144,6 +145,7 @@ export class SqliteCache {
     stmt.run(
       parsed.id,
       parsed.accountId,
+      parsed.service,
       parsed.type,
       parsed.title,
       JSON.stringify(parsed.participantIds),
@@ -417,6 +419,7 @@ export class SqliteCache {
     return ConversationSchema.parse({
       id: row.id,
       accountId: row.account_id,
+      service: row.service,
       type: row.type,
       title: row.title,
       participantIds: JSON.parse(row.participant_ids) as string[],

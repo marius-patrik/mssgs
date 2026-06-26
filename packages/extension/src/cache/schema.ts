@@ -34,6 +34,7 @@ export const V1_INITIAL_SCHEMA: Migration = {
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
       account_id TEXT NOT NULL,
+      service TEXT NOT NULL DEFAULT 'matrix',
       type TEXT NOT NULL,
       title TEXT,
       participant_ids TEXT NOT NULL,

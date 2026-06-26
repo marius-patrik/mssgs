@@ -42,6 +42,7 @@ export const ConversationTypeSchema = z.enum(['direct', 'group']);
 export const ConversationSchema = z.object({
   id: z.string().uuid(),
   accountId: z.string().uuid(),
+  service: ServiceTypeSchema,
   type: ConversationTypeSchema,
   title: z.string().min(1).nullable(),
   participantIds: z.array(z.string().uuid()),
