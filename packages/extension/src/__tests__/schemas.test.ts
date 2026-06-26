@@ -37,6 +37,7 @@ const validContact = {
 const validConversation = {
   id: '33333333-3333-3333-3333-333333333333',
   accountId: validAccount.id,
+  service: 'whatsapp',
   type: 'direct',
   title: null,
   participantIds: [validContact.id],
