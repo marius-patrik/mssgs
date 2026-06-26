@@ -3,6 +3,11 @@
   "displayName": "mssgs",
   "version": "0.1.0",
   "description": "Beeper-like unified messaging inside VSCode",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/marius-patrik/mssgs.git"
+  },
+  "license": "MIT",
   "type": "module",
   "main": "./out/extension.js",
   "scripts": {

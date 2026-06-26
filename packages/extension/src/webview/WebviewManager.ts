@@ -144,10 +144,9 @@ export class WebviewManager {
   }
 
   private getDistUri(): vscode.Uri {
-    // The webview is built by the @mssgs/webview workspace package. During
-    // development and in the workspace package layout the dist folder lives
-    // next to the extension package.
-    return vscode.Uri.joinPath(this.extensionUri, '..', 'webview', 'dist');
+    // The webview assets are copied into the extension package at build time
+    // so they are included in the packaged .vsix.
+    return vscode.Uri.joinPath(this.extensionUri, 'out', 'webview-dist');
   }
 
   private getHtml(webview: vscode.Webview): string {

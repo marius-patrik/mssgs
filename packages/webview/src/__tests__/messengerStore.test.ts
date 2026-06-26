@@ -94,6 +94,26 @@ describe('messengerStore', () => {
     expect(useMessengerStore.getState().conversations[conversation.id].unreadCount).toBe(0);
   });
 
+  it('does not double-count unread messages on repeated upsert', () => {
+    useMessengerStore.getState().upsertConversation(conversation);
+    const message = makeMessage();
+
+    useMessengerStore.getState().upsertMessage(message);
+    useMessengerStore.getState().upsertMessage(message);
+
+    expect(useMessengerStore.getState().conversations[conversation.id].unreadCount).toBe(1);
+  });
+
+  it('adjusts unread count when a message status changes', () => {
+    useMessengerStore.getState().upsertConversation(conversation);
+    const message = makeMessage();
+
+    useMessengerStore.getState().upsertMessage(message);
+    useMessengerStore.getState().upsertMessage({ ...message, status: 'read' });
+
+    expect(useMessengerStore.getState().conversations[conversation.id].unreadCount).toBe(0);
+  });
+
   it('sets active conversation id', () => {
     useMessengerStore.getState().setActiveConversationId(conversation.id);
     expect(useMessengerStore.getState().activeConversationId).toBe(conversation.id);

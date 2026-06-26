@@ -67,6 +67,7 @@ export const useMessengerStore = create<MessengerStore>()(
 
     upsertMessage: (message) =>
       set((state) => {
+        const previous = state.messages[message.id];
         state.messages[message.id] = message;
 
         const conversation = state.conversations[message.conversationId];
@@ -80,7 +81,14 @@ export const useMessengerStore = create<MessengerStore>()(
           conversation.lastMessageId = message.id;
         }
 
-        if (!message.isFromMe && message.status !== 'read') {
+        const wasUnreadIncoming = previous && !previous.isFromMe && previous.status !== 'read';
+        const isUnreadIncoming = !message.isFromMe && message.status !== 'read';
+
+        if (!previous && isUnreadIncoming) {
+          conversation.unreadCount += 1;
+        } else if (previous && wasUnreadIncoming && !isUnreadIncoming) {
+          conversation.unreadCount = Math.max(0, conversation.unreadCount - 1);
+        } else if (previous && !wasUnreadIncoming && isUnreadIncoming) {
           conversation.unreadCount += 1;
         }
 
