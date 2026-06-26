@@ -20,6 +20,7 @@ function seedStore(): void {
   ]);
   store.upsertConversation({
     id: 'conv-1',
+    service: 'telegram',
     accountId: 'acc-1',
     type: 'direct',
     title: 'Alice',
@@ -34,6 +35,7 @@ function seedStore(): void {
   });
   store.upsertConversation({
     id: 'conv-2',
+    service: 'telegram',
     accountId: 'acc-1',
     type: 'direct',
     title: 'Bob',
@@ -48,6 +50,7 @@ function seedStore(): void {
   });
   store.upsertConversation({
     id: 'conv-3',
+    service: 'telegram',
     accountId: 'acc-1',
     type: 'direct',
     title: 'Archived chat',

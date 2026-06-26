@@ -33,6 +33,7 @@ const contact: Contact = {
 
 const conversation: Conversation = {
   id: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+  service: 'whatsapp',
   accountId: account.id,
   type: 'direct',
   title: null,

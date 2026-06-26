@@ -18,6 +18,7 @@ const account: Account = {
 
 const conversation: Conversation = {
   id: 'conv-1',
+  service: 'whatsapp',
   accountId: account.id,
   type: 'direct',
   title: 'Alice',

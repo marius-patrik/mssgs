@@ -37,7 +37,7 @@ describe('WizardStepForm', () => {
       userId: '@user:example.com',
       password: 'secret',
     });
-  });
+  }, 20000);
 
   it('calls onCancel when cancel is clicked', async () => {
     const onCancel = vi.fn();

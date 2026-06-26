@@ -8,6 +8,7 @@ import { ConversationList } from '../ConversationList';
 const conversations: Conversation[] = [
   {
     id: 'conv-1',
+    service: 'matrix',
     accountId: 'acc-1',
     type: 'direct',
     title: 'Alpha',
@@ -22,6 +23,7 @@ const conversations: Conversation[] = [
   },
   {
     id: 'conv-2',
+    service: 'matrix',
     accountId: 'acc-1',
     type: 'direct',
     title: 'Beta',
@@ -36,6 +38,7 @@ const conversations: Conversation[] = [
   },
   {
     id: 'conv-3',
+    service: 'matrix',
     accountId: 'acc-1',
     type: 'direct',
     title: 'Gamma',

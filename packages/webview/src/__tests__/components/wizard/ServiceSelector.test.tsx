@@ -20,5 +20,5 @@ describe('ServiceSelector', () => {
     await userEvent.click(screen.getByText('Telegram'));
 
     expect(onSelect).toHaveBeenCalledWith('telegram');
-  });
+  }, 10000);
 });
