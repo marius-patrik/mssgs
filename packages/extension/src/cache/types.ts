@@ -23,6 +23,7 @@ export interface ContactRow {
 export interface ConversationRow {
   id: string;
   account_id: string;
+  service: string;
   type: string;
   title: string | null;
   participant_ids: string;

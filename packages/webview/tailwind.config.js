@@ -42,6 +42,12 @@ export default {
         telegram: '#0088cc',
         instagram: '#E4405F',
         imessage: '#34C759',
+        matrix: 'hsl(var(--service-matrix))',
+        sms: 'hsl(var(--service-sms))',
+        messenger: 'hsl(var(--service-messenger))',
+        signal: 'hsl(var(--service-signal))',
+        discord: 'hsl(var(--service-discord))',
+        slack: 'hsl(var(--service-slack))',
       },
       borderRadius: {
         lg: 'var(--radius-lg)',

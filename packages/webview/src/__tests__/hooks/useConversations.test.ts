@@ -14,6 +14,7 @@ function createConversation(
   return {
     id,
     accountId: 'acc-1',
+    service: 'whatsapp',
     type: 'direct',
     title,
     participantIds: ['contact-1'],

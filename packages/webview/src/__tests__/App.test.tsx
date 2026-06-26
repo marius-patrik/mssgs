@@ -9,6 +9,7 @@ function seedConversations(): void {
   store.upsertConversation({
     id: 'conv-1',
     accountId: 'acc-1',
+    service: 'whatsapp',
     type: 'direct',
     title: 'Alice',
     participantIds: ['contact-1'],
@@ -23,6 +24,7 @@ function seedConversations(): void {
   store.upsertConversation({
     id: 'conv-2',
     accountId: 'acc-1',
+    service: 'telegram',
     type: 'direct',
     title: 'Bob',
     participantIds: ['contact-2'],
