@@ -216,9 +216,14 @@ export class SqliteCache {
     const existing = this.getReadState(conversationId);
     const next: ReadState = {
       conversationId,
-      lastReadMessageId: readState.lastReadMessageId ?? existing?.lastReadMessageId ?? null,
-      lastReadAt: readState.lastReadAt ?? existing?.lastReadAt ?? null,
-      unreadCount: readState.unreadCount ?? existing?.unreadCount ?? 0,
+      lastReadMessageId:
+        'lastReadMessageId' in readState
+          ? readState.lastReadMessageId ?? null
+          : existing?.lastReadMessageId ?? null,
+      lastReadAt:
+        'lastReadAt' in readState ? readState.lastReadAt ?? null : existing?.lastReadAt ?? null,
+      unreadCount:
+        'unreadCount' in readState ? readState.unreadCount ?? 0 : existing?.unreadCount ?? 0,
     };
 
     const stmt = this.db.prepare(
