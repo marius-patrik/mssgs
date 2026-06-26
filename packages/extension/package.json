@@ -1,7 +1,8 @@
 {
-  "name": "@mssgs/extension",
+  "name": "mssgs",
+  "displayName": "mssgs",
   "version": "0.1.0",
-  "private": true,
+  "description": "Beeper-like unified messaging inside VSCode",
   "type": "module",
   "main": "./out/extension.js",
   "scripts": {
@@ -11,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "package": "vsce package --no-dependencies"
   },
+  "categories": ["Other"],
   "activationEvents": ["onStartupFinished"],
   "contributes": {
     "commands": [
