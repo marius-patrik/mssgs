@@ -1,11 +1,13 @@
 import { Menu } from 'lucide-react';
-import { type JSX, useState } from 'react';
+import { type JSX, useEffect, useState } from 'react';
 import { Inbox } from './components/inbox';
 import { Fade } from './components/motion/Fade';
 import { Button } from './components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip';
 import { AccountWizard } from './components/wizard';
+import { useKeyboardShortcuts } from './extras/useKeyboardShortcuts';
 import { useMessengerClient } from './messaging/useMessengerClient';
+import { getVsCodeApi } from './messaging/vscodeApi';
 import { useMessengerStore } from './stores/messengerStore';
 
 export function App(): JSX.Element {
@@ -13,10 +15,35 @@ export function App(): JSX.Element {
   const activeConversationId = useMessengerStore((state) => state.activeConversationId);
   const [wizardOpen, setWizardOpen] = useState(false);
 
+  useKeyboardShortcuts({ onNewConversation: () => setWizardOpen(true) });
+
+  useEffect(() => {
+    if (!getVsCodeApi()) {
+      return;
+    }
+
+    void client.request('setActiveConversation', { conversationId: activeConversationId });
+  }, [client, activeConversationId]);
+
+  useEffect(() => {
+    return client.onEvent((event) => {
+      if (event.eventType !== 'extras') {
+        return;
+      }
+
+      const payload = event.payload as { kind: string };
+      if (payload.kind === 'focusSearch') {
+        document.querySelector<HTMLInputElement>('input[aria-label="Search messages"]')?.focus();
+      } else if (payload.kind === 'openWizard') {
+        setWizardOpen(true);
+      }
+    });
+  }, [client]);
+
   return (
     <TooltipProvider delayDuration={200}>
       <div className="flex h-full w-full overflow-hidden bg-background text-foreground">
-        <Inbox onNewConversation={() => setWizardOpen(true)} />
+        <Inbox client={client} onNewConversation={() => setWizardOpen(true)} />
 
         <main className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-between border-b px-4 py-3">

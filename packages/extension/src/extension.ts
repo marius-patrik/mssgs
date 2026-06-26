@@ -1,13 +1,27 @@
+import * as fs from 'node:fs';
 import * as vscode from 'vscode';
+import { SqliteCache } from './cache/index.js';
 import { registerCommands } from './commands/index.js';
+import { registerExtras } from './extras/index.js';
 import { MessageBus } from './shared/messages.js';
 import { MessengerViewProvider } from './webview/MessengerViewProvider.js';
 import { WebviewManager } from './webview/WebviewManager.js';
 import { AccountWizardEngine, registerAccountWizardHandlers } from './wizard/index.js';
 
+function createCache(context: vscode.ExtensionContext): SqliteCache | undefined {
+  if (!context.globalStorageUri) {
+    return undefined;
+  }
+
+  fs.mkdirSync(context.globalStorageUri.fsPath, { recursive: true });
+  const dbPath = vscode.Uri.joinPath(context.globalStorageUri, 'mssgs.sqlite').fsPath;
+  return new SqliteCache(dbPath);
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const manager = new WebviewManager(context.extensionUri);
   const bus = new MessageBus();
+  const cache = createCache(context);
 
   // Wire the typed message bus to the webview surface.
   manager.onDidReceiveRequest((request) => {
@@ -29,6 +43,9 @@ export function activate(context: vscode.ExtensionContext): void {
   // Register account setup wizard handlers.
   registerAccountWizardHandlers({ bus, engine: new AccountWizardEngine() });
 
+  // Register Beeper-like extras (shortcuts, palette, reminders, scheduling).
+  const extrasDisposables = registerExtras({ bus, manager, cache });
+
   // Register the activity-bar webview view.
   const viewProvider = new MessengerViewProvider(manager);
   const viewRegistration = vscode.window.registerWebviewViewProvider(
@@ -45,7 +62,12 @@ export function activate(context: vscode.ExtensionContext): void {
     manager.postThemeEvent();
   });
 
-  context.subscriptions.push(viewRegistration, themeChangeDisposable, ...commandDisposables);
+  context.subscriptions.push(
+    viewRegistration,
+    themeChangeDisposable,
+    ...commandDisposables,
+    ...extrasDisposables,
+  );
 }
 
 export function deactivate(): void {

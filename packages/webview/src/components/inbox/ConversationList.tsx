@@ -1,5 +1,6 @@
 import { type JSX, useCallback, useEffect, useRef, useState } from 'react';
 import type { Conversation } from '../../../../extension/src/shared/types';
+import type { MessengerClient } from '../../messaging/client';
 import { ScrollArea } from '../ui/scroll-area';
 import { ConversationListItem } from './ConversationListItem';
 
@@ -7,12 +8,14 @@ export interface ConversationListProps {
   conversations: Conversation[];
   activeConversationId: string | null;
   onSelect: (conversationId: string) => void;
+  client?: MessengerClient;
 }
 
 export function ConversationList({
   conversations,
   activeConversationId,
   onSelect,
+  client,
 }: ConversationListProps): JSX.Element {
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const listRef = useRef<HTMLDivElement>(null);
@@ -99,6 +102,7 @@ export function ConversationList({
         {conversations.map((conversation) => (
           <ConversationListItem
             key={conversation.id}
+            client={client}
             conversation={conversation}
             isActive={activeConversationId === conversation.id}
             onSelect={onSelect}
