@@ -1,57 +1,43 @@
-import { X } from 'lucide-react';
 import { type JSX, useCallback, useState } from 'react';
-import type { SetupServiceType, SetupStatus } from '../../../../extension/src/shared/messages';
-import { useMessengerClient } from '../../messaging/useMessengerClient';
+import type { WizardStep } from '../../../../extension/src/shared/messages';
+import type { ServiceType } from '../../../../extension/src/shared/types';
+import type { MessengerClient } from '../../messaging/client';
 import { Button } from '../ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import { CredentialsStep } from './CredentialsStep';
-import { ServiceStep } from './ServiceStep';
-import { StatusStep } from './StatusStep';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../ui/dialog';
+import { ServiceSelector } from './ServiceSelector';
+import { WizardStepForm } from './WizardStepForm';
 
 export interface AccountWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  client: MessengerClient;
 }
 
-export function AccountWizard({ open, onOpenChange }: AccountWizardProps): JSX.Element {
-  const client = useMessengerClient();
-  const [service, setService] = useState<SetupServiceType | null>(null);
-  const [status, setStatus] = useState<SetupStatus | null>(null);
+type WizardView = { type: 'select' } | { type: 'step'; setupId: string; step: WizardStep };
+
+export function AccountWizard({ open, onOpenChange, client }: AccountWizardProps): JSX.Element {
+  const [view, setView] = useState<WizardView>({ type: 'select' });
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const reset = useCallback(() => {
-    setService(null);
-    setStatus(null);
-    setIsLoading(false);
-  }, []);
-
-  const handleOpenChange = useCallback(
-    (next: boolean) => {
-      if (!next) {
-        if (status?.setupId) {
-          void client.request('cancelAccountSetup', { setupId: status.setupId });
-        }
-        reset();
-      }
-      onOpenChange(next);
-    },
-    [client, onOpenChange, reset, status?.setupId],
-  );
+  const handleClose = useCallback((): void => {
+    if (view.type === 'step') {
+      void client.request('cancelAccountSetup', { setupId: view.setupId });
+    }
+    setView({ type: 'select' });
+    setError(null);
+    onOpenChange(false);
+  }, [client, onOpenChange, view]);
 
   const handleSelectService = useCallback(
-    async (selected: SetupServiceType) => {
-      setService(selected);
+    async (service: ServiceType): Promise<void> => {
       setIsLoading(true);
+      setError(null);
       try {
-        const result = await client.request('startAccountSetup', { service: selected });
-        setStatus(result);
-      } catch (error) {
-        setStatus({
-          setupId: '',
-          service: selected,
-          step: 'error',
-          error: error instanceof Error ? error.message : String(error),
-        });
+        const result = await client.request('startAccountSetup', { service });
+        setView({ type: 'step', setupId: result.setupId, step: result.step });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
       } finally {
         setIsLoading(false);
       }
@@ -59,92 +45,73 @@ export function AccountWizard({ open, onOpenChange }: AccountWizardProps): JSX.E
     [client],
   );
 
-  const handleSubmitCredentials = useCallback(
-    async (credentials: Record<string, string>) => {
-      if (!status?.setupId) {
+  const handleSubmitStep = useCallback(
+    async (data: Record<string, string>): Promise<void> => {
+      if (view.type !== 'step') {
         return;
       }
 
       setIsLoading(true);
+      setError(null);
       try {
-        const result = await client.request('submitAccountCredentials', {
-          setupId: status.setupId,
-          credentials,
+        const result = await client.request('submitAccountSetupStep', {
+          setupId: view.setupId,
+          stepId: view.step.stepId,
+          data,
         });
-        setStatus(result);
-      } catch (error) {
-        setStatus({
-          setupId: status.setupId,
-          service: status.service,
-          step: 'error',
-          error: error instanceof Error ? error.message : String(error),
-        });
+
+        if (result.done) {
+          handleClose();
+          return;
+        }
+
+        if (result.error) {
+          setError(result.error);
+          return;
+        }
+
+        if (result.step) {
+          setView({ type: 'step', setupId: view.setupId, step: result.step });
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
       } finally {
         setIsLoading(false);
       }
     },
-    [client, status],
+    [client, view, handleClose],
   );
 
-  const handleRetry = useCallback(() => {
-    if (!service) {
-      return;
-    }
-    void handleSelectService(service);
-  }, [handleSelectService, service]);
-
-  const title = status?.service
-    ? `Connect ${status.service.charAt(0).toUpperCase() + status.service.slice(1)}`
-    : 'Add account';
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-4 top-4"
-            onClick={() => handleOpenChange(false)}
-            aria-label="Close wizard"
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          <DialogTitle>Add account</DialogTitle>
+          <DialogDescription>
+            Connect a messaging service through its Matrix bridge.
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="py-2">
-          {!service && <ServiceStep onSelect={handleSelectService} />}
-
-          {service && status?.step === 'credentials' && !isLoading && (
-            <CredentialsStep
-              service={service}
-              instruction={status.instruction}
-              onSubmit={handleSubmitCredentials}
-              onCancel={() => handleOpenChange(false)}
-            />
-          )}
-
-          {service &&
-            status &&
-            (status.step === 'qr' ||
-              status.step === 'link' ||
-              status.step === 'pairing' ||
-              status.step === 'connecting' ||
-              status.step === 'connected' ||
-              status.step === 'error') && (
-              <StatusStep
-                service={service}
-                step={status.step}
-                instruction={status.instruction}
-                qrData={status.qrData}
-                linkUrl={status.linkUrl}
-                error={status.error}
-                onRetry={status.step === 'error' ? handleRetry : undefined}
-                onCancel={() => handleOpenChange(false)}
-              />
-            )}
-        </div>
+        {view.type === 'select' ? (
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">Choose a service to set up:</p>
+            <ServiceSelector onSelect={handleSelectService} />
+            {error && <p className="text-sm text-destructive">{error}</p>}
+            <div className="flex justify-end">
+              <Button variant="outline" onClick={handleClose} disabled={isLoading}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <WizardStepForm
+            step={view.step}
+            onSubmit={handleSubmitStep}
+            onCancel={handleClose}
+            isLoading={isLoading}
+            error={error}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );

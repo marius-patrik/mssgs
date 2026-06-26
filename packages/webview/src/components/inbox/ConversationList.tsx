@@ -1,158 +1,110 @@
-import { Search } from 'lucide-react';
-import { type JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type JSX, useCallback, useEffect, useRef, useState } from 'react';
 import type { Conversation } from '../../../../extension/src/shared/types';
-import { cn } from '../../lib/utils';
-import { useMessengerStore } from '../../stores/messengerStore';
-import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
-import { ConversationItem } from './ConversationItem';
+import { ConversationListItem } from './ConversationListItem';
 
 export interface ConversationListProps {
   conversations: Conversation[];
-  className?: string;
+  activeConversationId: string | null;
+  onSelect: (conversationId: string) => void;
 }
 
-function getLastMessageText(
-  conversation: Conversation,
-  messages: ReturnType<typeof useMessengerStore.getState>['messages'],
-): string | null {
-  if (!conversation.lastMessageId) {
-    return null;
-  }
-  const message = messages[conversation.lastMessageId];
-  return message?.text ?? null;
-}
-
-export function ConversationList({ conversations, className }: ConversationListProps): JSX.Element {
-  const messages = useMessengerStore((state) => state.messages);
-  const activeConversationId = useMessengerStore((state) => state.activeConversationId);
-  const setActiveConversationId = useMessengerStore((state) => state.setActiveConversationId);
-  const [query, setQuery] = useState('');
+export function ConversationList({
+  conversations,
+  activeConversationId,
+  onSelect,
+}: ConversationListProps): JSX.Element {
+  const [focusedIndex, setFocusedIndex] = useState<number>(-1);
   const listRef = useRef<HTMLDivElement>(null);
-  const itemRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
-  const filtered = useMemo(() => {
-    const trimmed = query.trim().toLowerCase();
-    if (!trimmed) {
-      return conversations.filter((conversation) => !conversation.isArchived);
-    }
-
-    return conversations.filter((conversation) => {
-      if (conversation.isArchived) {
-        return false;
+  const moveFocus = useCallback(
+    (delta: number) => {
+      if (conversations.length === 0) {
+        return;
       }
-      const text = (conversation.title ?? '').toLowerCase();
-      const lastMessage = conversation.lastMessageId
-        ? (messages[conversation.lastMessageId]?.text ?? '').toLowerCase()
-        : '';
-      return text.includes(trimmed) || lastMessage.includes(trimmed);
-    });
-  }, [conversations, query, messages]);
 
-  const handleSelect = useCallback(
-    (conversationId: string) => {
-      setActiveConversationId(conversationId);
+      setFocusedIndex((previous) => {
+        const next = previous + delta;
+        return Math.max(0, Math.min(conversations.length - 1, next));
+      });
     },
-    [setActiveConversationId],
+    [conversations.length],
   );
 
-  const focusItem = useCallback((conversationId: string | null) => {
-    if (!conversationId) {
-      listRef.current?.focus();
-      return;
-    }
-    const element = itemRefs.current.get(conversationId);
-    element?.querySelector('button')?.focus();
-    element?.scrollIntoView({ block: 'nearest' });
-  }, []);
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      if (conversations.length === 0) {
+        return;
+      }
+
+      switch (event.key) {
+        case 'ArrowDown':
+          event.preventDefault();
+          moveFocus(1);
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          moveFocus(-1);
+          break;
+        case 'Home':
+          event.preventDefault();
+          setFocusedIndex(0);
+          break;
+        case 'End':
+          event.preventDefault();
+          setFocusedIndex(conversations.length - 1);
+          break;
+        case 'Enter':
+          event.preventDefault();
+          if (focusedIndex >= 0 && focusedIndex < conversations.length) {
+            onSelect(conversations[focusedIndex].id);
+          }
+          break;
+        case 'Escape':
+          setFocusedIndex(-1);
+          break;
+      }
+    },
+    [conversations, focusedIndex, moveFocus, onSelect],
+  );
 
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(event.key)) {
-        return;
-      }
+    if (focusedIndex < 0) {
+      return;
+    }
 
-      const activeElement = document.activeElement;
-      const isInsideList = listRef.current?.contains(activeElement) ?? false;
-      if (!isInsideList) {
-        return;
-      }
+    const item = listRef.current?.querySelector<HTMLElement>(
+      `[data-conversation-id="${conversations[focusedIndex]?.id}"]`,
+    );
+    item?.focus();
+  }, [focusedIndex, conversations]);
 
-      event.preventDefault();
-
-      const currentIndex = filtered.findIndex((c) => c.id === activeConversationId);
-
-      if (event.key === 'ArrowDown') {
-        const next = filtered[currentIndex + 1] ?? filtered[0];
-        if (next) {
-          setActiveConversationId(next.id);
-          focusItem(next.id);
-        }
-      } else if (event.key === 'ArrowUp') {
-        const previous = filtered[currentIndex - 1] ?? filtered[filtered.length - 1];
-        if (previous) {
-          setActiveConversationId(previous.id);
-          focusItem(previous.id);
-        }
-      } else if (event.key === 'Enter' && activeConversationId) {
-        handleSelect(activeConversationId);
-      } else if (event.key === 'Escape') {
-        setQuery('');
-      }
-    };
-
-    const list = listRef.current;
-    list?.addEventListener('keydown', handleKeyDown);
-    return () => list?.removeEventListener('keydown', handleKeyDown);
-  }, [activeConversationId, filtered, focusItem, handleSelect, setActiveConversationId]);
+  if (conversations.length === 0) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-sm text-muted-foreground">
+        <p>No conversations found.</p>
+      </div>
+    );
+  }
 
   return (
-    <div className={cn('flex flex-col gap-2', className)}>
-      <div className="relative px-3 py-2">
-        <Search className="absolute left-[1.375rem] top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search messages…"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          className="h-9 pl-9 text-sm"
-          aria-label="Search messages"
-        />
+    <ScrollArea className="flex-1">
+      <div
+        ref={listRef}
+        role="list"
+        aria-label="Conversations"
+        onKeyDown={handleKeyDown}
+        className="flex flex-col gap-1 p-2"
+      >
+        {conversations.map((conversation) => (
+          <ConversationListItem
+            key={conversation.id}
+            conversation={conversation}
+            isActive={activeConversationId === conversation.id}
+            onSelect={onSelect}
+          />
+        ))}
       </div>
-
-      <ScrollArea className="flex-1">
-        <div
-          ref={listRef}
-          role="listbox"
-          tabIndex={0}
-          className="flex flex-col gap-1 p-2 outline-none"
-          aria-label="Conversations"
-        >
-          {filtered.map((conversation) => (
-            <div
-              key={conversation.id}
-              ref={(element) => {
-                if (element) {
-                  itemRefs.current.set(conversation.id, element);
-                } else {
-                  itemRefs.current.delete(conversation.id);
-                }
-              }}
-            >
-              <ConversationItem
-                conversation={conversation}
-                isActive={activeConversationId === conversation.id}
-                lastMessageText={getLastMessageText(conversation, messages)}
-                onSelect={handleSelect}
-              />
-            </div>
-          ))}
-          {filtered.length === 0 && (
-            <p className="px-3 py-4 text-center text-sm text-muted-foreground">
-              {query ? 'No conversations match your search.' : 'No conversations yet.'}
-            </p>
-          )}
-        </div>
-      </ScrollArea>
-    </div>
+    </ScrollArea>
   );
 }

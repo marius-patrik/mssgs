@@ -1,13 +1,28 @@
-export type SetupServiceType = 'whatsapp' | 'telegram' | 'instagram' | 'imessage';
+import type { ServiceType } from './types.js';
 
-export interface SetupStatus {
-  setupId: string;
-  service: SetupServiceType;
-  step: 'select' | 'credentials' | 'qr' | 'link' | 'pairing' | 'connecting' | 'connected' | 'error';
-  instruction?: string;
-  qrData?: string;
-  linkUrl?: string;
-  error?: string;
+export interface WizardStep {
+  stepId: string;
+  title: string;
+  description: string;
+  fields: WizardField[];
+}
+
+export interface WizardField {
+  name: string;
+  label: string;
+  type: 'text' | 'password' | 'tel' | 'select' | 'qr' | 'static';
+  placeholder?: string;
+  options?: Array<{ label: string; value: string }>;
+  value?: string;
+}
+
+export type SetupStatus = 'active' | 'completed' | 'cancelled' | 'error';
+
+export interface WizardServiceInfo {
+  service: ServiceType;
+  displayName: string;
+  requiresPhone: boolean;
+  requiresMatrixLogin: boolean;
 }
 
 export interface MssgsRequestMap {
@@ -17,13 +32,32 @@ export interface MssgsRequestMap {
   archiveConversation: { payload: { conversationId: string }; response: { archived: boolean } };
   markAllAsRead: { payload?: undefined; response: { marked: number } };
   searchMessages: { payload: { query: string }; response: { results: unknown[] } };
-  startAccountSetup: { payload: { service: SetupServiceType }; response: SetupStatus };
-  submitAccountCredentials: {
-    payload: { setupId: string; credentials: Record<string, string> };
-    response: SetupStatus;
+  getSupportedServices: {
+    payload?: undefined;
+    response: { services: WizardServiceInfo[] };
   };
-  cancelAccountSetup: { payload: { setupId: string }; response: { cancelled: boolean } };
-  getSetupStatus: { payload: { setupId: string }; response: SetupStatus };
+  startAccountSetup: {
+    payload: { service: ServiceType };
+    response: { setupId: string; step: WizardStep };
+  };
+  submitAccountSetupStep: {
+    payload: { setupId: string; stepId: string; data: Record<string, string> };
+    response: { done: boolean; step?: WizardStep; error?: string };
+  };
+  cancelAccountSetup: {
+    payload: { setupId: string };
+    response: { cancelled: boolean };
+  };
+  getAccountSetupStatus: {
+    payload: { setupId: string };
+    response: {
+      setupId: string;
+      service: ServiceType;
+      status: SetupStatus;
+      step?: WizardStep;
+      error: string | null;
+    };
+  };
 }
 
 export type MssgsMethod = keyof MssgsRequestMap;
