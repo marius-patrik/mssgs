@@ -1,5 +1,5 @@
 import { Menu, Moon, Plus, Search, Sun } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type JSX, useMemo, useState } from 'react';
 import { Fade } from './components/motion/Fade';
 import { Avatar, AvatarFallback } from './components/ui/avatar';
 import { Button } from './components/ui/button';

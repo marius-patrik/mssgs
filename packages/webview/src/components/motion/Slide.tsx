@@ -1,5 +1,5 @@
 import { type Transition, type Variants, motion } from 'framer-motion';
-import type { ReactNode } from 'react';
+import type { JSX, ReactNode } from 'react';
 
 export type SlideDirection = 'up' | 'down' | 'left' | 'right';
 
