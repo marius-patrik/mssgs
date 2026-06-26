@@ -1,8 +1,9 @@
 import { Archive, Pin, Star } from 'lucide-react';
 import { type JSX, useCallback } from 'react';
 import type { Conversation } from '../../../../extension/src/shared/types';
+import { useConversationActions } from '../../extras/useConversationActions';
 import { cn } from '../../lib/utils';
-import { useMessengerStore } from '../../stores/messengerStore';
+import type { MessengerClient } from '../../messaging/client';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Button } from '../ui/button';
 import {
@@ -18,17 +19,21 @@ export interface ConversationListItemProps {
   conversation: Conversation;
   isActive: boolean;
   onSelect: (conversationId: string) => void;
+  client?: MessengerClient;
 }
 
 export function ConversationListItem({
   conversation,
   isActive,
   onSelect,
+  client,
 }: ConversationListItemProps): JSX.Element {
   const details = useConversationDetails(conversation);
-  const toggleFavorite = useMessengerStore((state) => state.toggleFavorite);
-  const togglePin = useMessengerStore((state) => state.togglePin);
-  const archive = useMessengerStore((state) => state.archiveConversation);
+  const {
+    toggleFavorite,
+    togglePin,
+    archiveConversation: archive,
+  } = useConversationActions(client);
 
   const handleClick = useCallback(() => {
     onSelect(conversation.id);

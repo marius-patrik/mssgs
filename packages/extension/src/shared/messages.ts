@@ -1,4 +1,4 @@
-import type { ServiceType } from './types.js';
+import type { Conversation, Reminder, ScheduledMessage, ServiceType } from './types.js';
 
 export interface AttachmentDraft {
   name: string;
@@ -39,6 +39,35 @@ export interface MssgsRequestMap {
   archiveConversation: { payload: { conversationId: string }; response: { archived: boolean } };
   markAllAsRead: { payload?: undefined; response: { marked: number } };
   searchMessages: { payload: { query: string }; response: { results: unknown[] } };
+  updateConversation: {
+    payload: { conversation: Conversation };
+    response: { conversation: Conversation };
+  };
+  setActiveConversation: {
+    payload: { conversationId: string | null };
+    response: { activeConversationId: string | null };
+  };
+  setReminder: {
+    payload: { messageId: string; remindAt: string };
+    response: { reminderId: string };
+  };
+  deleteReminder: { payload: { reminderId: string }; response: { deleted: boolean } };
+  getReminders: {
+    payload?: { messageId?: string } | undefined;
+    response: { reminders: Reminder[] };
+  };
+  scheduleMessage: {
+    payload: { conversationId: string; text: string; scheduledAt: string };
+    response: { scheduledMessageId: string };
+  };
+  cancelScheduledMessage: {
+    payload: { scheduledMessageId: string };
+    response: { cancelled: boolean };
+  };
+  getScheduledMessages: {
+    payload?: { conversationId?: string } | undefined;
+    response: { scheduledMessages: ScheduledMessage[] };
+  };
   getSupportedServices: {
     payload?: undefined;
     response: { services: WizardServiceInfo[] };
@@ -117,7 +146,7 @@ export type MssgsResponse =
   | { type: 'response'; id: string; result: unknown }
   | { type: 'response'; id: string; error: string };
 
-export type MssgsEventType = 'accounts' | 'conversations' | 'messages' | 'theme';
+export type MssgsEventType = 'accounts' | 'conversations' | 'messages' | 'theme' | 'extras';
 
 export type MssgsEvent =
   | { type: 'event'; eventType: 'accounts'; payload: unknown[] }
@@ -127,6 +156,11 @@ export type MssgsEvent =
       type: 'event';
       eventType: 'theme';
       payload: { kind: 'dark' | 'light' | 'highContrast' };
+    }
+  | {
+      type: 'event';
+      eventType: 'extras';
+      payload: { kind: string; data?: unknown };
     };
 
 export type MssgsMessage = MssgsRequest | MssgsResponse | MssgsEvent;

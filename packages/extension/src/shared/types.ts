@@ -11,6 +11,8 @@ import type {
   MessageStatusSchema,
   NormalizedStateSchema,
   ReactionSchema,
+  ReminderSchema,
+  ScheduledMessageSchema,
   ServiceTypeSchema,
 } from './schemas.js';
 
@@ -27,4 +29,6 @@ export type Message = z.infer<typeof MessageSchema>;
 export type Reaction = z.infer<typeof ReactionSchema>;
 export type AttachmentType = z.infer<typeof AttachmentTypeSchema>;
 export type Attachment = z.infer<typeof AttachmentSchema>;
+export type ScheduledMessage = z.infer<typeof ScheduledMessageSchema>;
+export type Reminder = z.infer<typeof ReminderSchema>;
 export type NormalizedState = z.infer<typeof NormalizedStateSchema>;

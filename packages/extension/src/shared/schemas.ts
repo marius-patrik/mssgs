@@ -105,3 +105,18 @@ export const NormalizedStateSchema = z.object({
   messages: z.record(z.string().uuid(), MessageSchema),
   activeConversationId: z.string().uuid().nullable(),
 });
+
+export const ScheduledMessageSchema = z.object({
+  id: z.string().uuid(),
+  conversationId: z.string().uuid(),
+  text: z.string().min(1),
+  scheduledAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+});
+
+export const ReminderSchema = z.object({
+  id: z.string().uuid(),
+  messageId: z.string().uuid(),
+  remindAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+});
