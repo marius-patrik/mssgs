@@ -2,9 +2,9 @@ import { Menu } from 'lucide-react';
 import { type JSX, useState } from 'react';
 import { Inbox } from './components/inbox';
 import { Fade } from './components/motion/Fade';
-import { AccountWizard } from './components/wizard';
 import { Button } from './components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './components/ui/tooltip';
+import { AccountWizard } from './components/wizard';
 import { useMessengerClient } from './messaging/useMessengerClient';
 import { useMessengerStore } from './stores/messengerStore';
 

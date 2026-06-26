@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 import { registerCommands } from './commands/index.js';
 import { MessageBus } from './shared/messages.js';
-import { AccountWizardEngine, registerAccountWizardHandlers } from './wizard/index.js';
 import { MessengerViewProvider } from './webview/MessengerViewProvider.js';
 import { WebviewManager } from './webview/WebviewManager.js';
+import { AccountWizardEngine, registerAccountWizardHandlers } from './wizard/index.js';
 
 export function activate(context: vscode.ExtensionContext): void {
   const manager = new WebviewManager(context.extensionUri);
