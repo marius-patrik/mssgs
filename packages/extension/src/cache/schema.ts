@@ -34,7 +34,6 @@ export const V1_INITIAL_SCHEMA: Migration = {
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
       account_id TEXT NOT NULL,
-      service TEXT NOT NULL DEFAULT 'matrix',
       type TEXT NOT NULL,
       title TEXT,
       participant_ids TEXT NOT NULL,
@@ -108,4 +107,12 @@ export const V1_INITIAL_SCHEMA: Migration = {
   `,
 };
 
-export const MIGRATIONS: Migration[] = [V1_INITIAL_SCHEMA];
+export const V2_ADD_CONVERSATION_SERVICE: Migration = {
+  version: 2,
+  name: 'add conversation service column',
+  sql: `
+    ALTER TABLE conversations ADD COLUMN service TEXT NOT NULL DEFAULT 'matrix';
+  `,
+};
+
+export const MIGRATIONS: Migration[] = [V1_INITIAL_SCHEMA, V2_ADD_CONVERSATION_SERVICE];

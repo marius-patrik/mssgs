@@ -51,7 +51,7 @@ export function useConversationDetails(conversation: Conversation): Conversation
       .map((id) => contacts[id])
       .filter((contact): contact is Contact => Boolean(contact));
 
-    const service = account?.service ?? 'matrix';
+    const service = conversation.service ?? account?.service ?? 'matrix';
     const serviceMeta = getServiceMeta(service);
 
     const title = conversation.title ?? participants[0]?.displayName ?? 'Unknown';

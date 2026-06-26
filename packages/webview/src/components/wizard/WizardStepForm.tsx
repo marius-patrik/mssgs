@@ -1,4 +1,4 @@
-import { type ChangeEvent, type FormEvent, type JSX, useState } from 'react';
+import { type ChangeEvent, type FormEvent, type JSX, useEffect, useState } from 'react';
 import type { WizardField, WizardStep } from '../../../../extension/src/shared/messages';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -25,6 +25,14 @@ export function WizardStepForm({
     }
     return initial;
   });
+
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    for (const field of step.fields) {
+      next[field.name] = field.value ?? '';
+    }
+    setValues(next);
+  }, [step]);
 
   const handleChange =
     (field: WizardField) =>

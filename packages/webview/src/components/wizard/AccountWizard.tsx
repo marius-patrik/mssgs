@@ -61,7 +61,10 @@ export function AccountWizard({ open, onOpenChange, client }: AccountWizardProps
         });
 
         if (result.done) {
-          handleClose();
+          // Close without cancelling; the setup completed successfully.
+          setView({ type: 'select' });
+          setError(null);
+          onOpenChange(false);
           return;
         }
 
@@ -79,7 +82,7 @@ export function AccountWizard({ open, onOpenChange, client }: AccountWizardProps
         setIsLoading(false);
       }
     },
-    [client, view, handleClose],
+    [client, view, onOpenChange],
   );
 
   return (
