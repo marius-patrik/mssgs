@@ -5,7 +5,7 @@
   "description": "Beeper-like unified messaging inside VSCode",
   "repository": {
     "type": "git",
-    "url": "https://github.com/<user>/mssgs.git"
+    "url": "https://github.com/marius-patrik/mssgs.git"
   },
   "license": "MIT",
   "author": "Kimi Agent",
@@ -21,7 +21,8 @@
     "format": "biome format . --write",
     "typecheck": "npm run typecheck --workspaces",
     "test": "npm run test --workspaces",
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspace=packages/webview && npm run build --workspace=packages/extension && npm run copy:webview",
+    "copy:webview": "rm -rf packages/extension/out/webview-dist && cp -R packages/webview/dist packages/extension/out/webview-dist",
     "package": "npm run build && npm run package --workspace=packages/extension",
     "vscode:prepublish": "npm run package",
     "prepare": "husky"
