@@ -50,6 +50,78 @@
         "command": "mssgs.searchMessages",
         "title": "Search Messages…",
         "category": "mssgs"
+      },
+      {
+        "command": "mssgs.focusSearch",
+        "title": "Focus Search",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.newConversation",
+        "title": "New Conversation",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.togglePinConversation",
+        "title": "Toggle Pin Conversation",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.toggleFavoriteConversation",
+        "title": "Toggle Favorite Conversation",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.archiveSelected",
+        "title": "Archive Selected Conversation",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.setReminder",
+        "title": "Set Reminder on Message…",
+        "category": "mssgs"
+      },
+      {
+        "command": "mssgs.scheduleMessage",
+        "title": "Schedule Message…",
+        "category": "mssgs"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "mssgs.focusSearch",
+        "key": "ctrl+shift+alt+s",
+        "mac": "cmd+shift+alt+s"
+      },
+      {
+        "command": "mssgs.newConversation",
+        "key": "ctrl+shift+alt+n",
+        "mac": "cmd+shift+alt+n"
+      },
+      {
+        "command": "mssgs.togglePinConversation",
+        "key": "ctrl+shift+alt+p",
+        "mac": "cmd+shift+alt+p"
+      },
+      {
+        "command": "mssgs.toggleFavoriteConversation",
+        "key": "ctrl+shift+alt+f",
+        "mac": "cmd+shift+alt+f"
+      },
+      {
+        "command": "mssgs.archiveSelected",
+        "key": "ctrl+shift+alt+a",
+        "mac": "cmd+shift+alt+a"
+      },
+      {
+        "command": "mssgs.setReminder",
+        "key": "ctrl+shift+alt+r",
+        "mac": "cmd+shift+alt+r"
+      },
+      {
+        "command": "mssgs.scheduleMessage",
+        "key": "ctrl+shift+alt+m",
+        "mac": "cmd+shift+alt+m"
       }
     ],
     "viewsContainers": {
