@@ -41,6 +41,9 @@
   --service-instagram: 351 77% 57%;
   --service-imessage: 130 69% 49%;
   --service-matrix: 260 60% 50%;
+  --service-sms: 0 0% 45%;
+  --service-messenger: 217 89% 61%;
+  --service-signal: 207 95% 55%;
   --service-slack: 19 89% 54%;
   --service-discord: 235 86% 65%;
 }
