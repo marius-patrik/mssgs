@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { registerCommands } from './commands/index.js';
 import { MessageBus } from './shared/messages.js';
+import { AccountWizardEngine, registerAccountWizardHandlers } from './wizard/index.js';
 import { MessengerViewProvider } from './webview/MessengerViewProvider.js';
 import { WebviewManager } from './webview/WebviewManager.js';
 
@@ -24,6 +25,9 @@ export function activate(context: vscode.ExtensionContext): void {
   bus.registerHandler('searchMessages', ({ query }) => ({
     results: query ? [{ query }] : [],
   }));
+
+  // Register account setup wizard handlers.
+  registerAccountWizardHandlers({ bus, engine: new AccountWizardEngine() });
 
   // Register the activity-bar webview view.
   const viewProvider = new MessengerViewProvider(manager);
