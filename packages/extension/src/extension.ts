@@ -1,8 +1,10 @@
 import * as fs from 'node:fs';
 import * as vscode from 'vscode';
-import { ConnectionManager } from './backend/ConnectionManager.js';
-import { DefaultMatrixClientFactory } from './backend/matrixClient.js';
-import type { MatrixMessageInfo, MatrixRoomInfo } from './backend/types.js';
+import {
+  BeeperDesktopConnection,
+  type BeeperDesktopCredentials,
+} from './backend/BeeperDesktopConnection.js';
+import type { BeeperMessageInfo, BeeperRoomInfo } from './backend/BeeperDesktopConnection.js';
 import { SqliteCache } from './cache/index.js';
 import { registerCommands } from './commands/index.js';
 import { registerExtras } from './extras/index.js';
@@ -38,18 +40,14 @@ function stableUuid(input: string): string {
   return `${hex.slice(0, 8)}-${hex.slice(0, 4)}-4${hex.slice(1, 4)}-a${hex.slice(0, 3)}-${hex.repeat(2).slice(0, 12)}`;
 }
 
-function getHomeserverUrl(): string {
+function getBeeperBaseUrl(): string {
   return (
-    vscode.workspace.getConfiguration('mssgs').get<string>('homeserverUrl') ??
-    'https://matrix.beeper.com'
+    vscode.workspace.getConfiguration('mssgs').get<string>('beeperBaseUrl') ??
+    'http://localhost:23373'
   );
 }
 
-function roomToConversation(
-  account: Account,
-  room: MatrixRoomInfo,
-  contactId: string,
-): Conversation {
+function roomToConversation(account: Account, room: BeeperRoomInfo): Conversation {
   const now = new Date().toISOString();
   return {
     id: stableUuid(room.roomId),
@@ -57,7 +55,7 @@ function roomToConversation(
     service: account.service,
     type: room.isDM ? 'direct' : 'group',
     title: room.name ?? 'Unknown',
-    participantIds: [contactId],
+    participantIds: [stableUuid(room.roomId)],
     lastMessageId: null,
     unreadCount: 0,
     isArchived: false,
@@ -68,13 +66,13 @@ function roomToConversation(
   };
 }
 
-function senderToContact(account: Account, senderId: string): Contact {
+function senderToContact(account: Account, senderId: string, senderName: string): Contact {
   const now = new Date().toISOString();
   return {
     id: stableUuid(senderId),
     accountId: account.id,
     serviceContactId: senderId,
-    displayName: senderId.split(':')[0].replace(/^@/, ''),
+    displayName: senderName || senderId.split(':')[0].replace(/^@/, ''),
     username: senderId,
     avatarUrl: null,
     createdAt: now,
@@ -82,10 +80,10 @@ function senderToContact(account: Account, senderId: string): Contact {
   };
 }
 
-function matrixMessageToMessage(
+function beeperMessageToMessage(
   account: Account,
   conversationId: string,
-  msg: MatrixMessageInfo,
+  msg: BeeperMessageInfo,
 ): Message {
   return {
     id: stableUuid(msg.id),
@@ -117,17 +115,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const manager = new WebviewManager(context.extensionUri);
   const bus = new MessageBus();
   const cache = createCache(context);
-
-  const connectionManager = new ConnectionManager(new DefaultMatrixClientFactory(), {
-    cryptoInitializer: async (client) => {
-      const sdkClient = client as unknown as {
-        initRustCrypto?(args?: { useIndexedDB?: boolean }): Promise<void>;
-      };
-      if (sdkClient.initRustCrypto) {
-        await sdkClient.initRustCrypto({ useIndexedDB: false });
-      }
-    },
-  });
+  const connections = new Map<string, BeeperDesktopConnection>();
 
   // Wire the typed message bus to the webview surface.
   manager.onDidReceiveRequest((request) => {
@@ -160,42 +148,7 @@ export function activate(context: vscode.ExtensionContext): void {
     results: cache?.searchMessages(query) ?? [],
   }));
 
-  // Register account setup wizard handlers.
-  registerAccountWizardHandlers({
-    bus,
-    engine: new AccountWizardEngine(),
-    getHomeserverUrl,
-    onComplete: async (session) => {
-      const username = session.data.username.trim();
-      const password = session.data.password;
-      const userId = username.startsWith('@') ? username : `@${username}:beeper.com`;
-      const account = createAccount(session.service, userId);
-
-      cache?.syncAccount(account);
-      manager.postEvent({
-        type: 'event',
-        eventType: 'accounts',
-        payload: cache?.getAccounts() ?? [account],
-      });
-
-      await connectionManager.addAccount({
-        service: account.service,
-        displayName: account.displayName,
-        credentials: {
-          homeserverUrl: getHomeserverUrl(),
-          userId,
-          password,
-        },
-      });
-
-      void connectionManager.connect(account.id).catch(() => {
-        // Errors are emitted as events below.
-      });
-    },
-  });
-
-  // Sync backend events into the cache and broadcast to the webview.
-  connectionManager.on('statusChanged', ({ accountId, status, error }) => {
+  function syncAccountStatus(accountId: string, status: Account['status'], error?: string): void {
     const account = cache?.getAccount(accountId);
     if (!account) {
       return;
@@ -216,85 +169,105 @@ export function activate(context: vscode.ExtensionContext): void {
     if (error) {
       void vscode.window.showErrorMessage(`mssgs connection error: ${error}`);
     }
-  });
+  }
 
-  connectionManager.on('roomsChanged', ({ accountId, rooms }) => {
-    const account = cache?.getAccount(accountId);
-    if (!account) {
-      return;
-    }
+  // Register account setup wizard handlers.
+  registerAccountWizardHandlers({
+    bus,
+    engine: new AccountWizardEngine(),
+    getHomeserverUrl: getBeeperBaseUrl,
+    onComplete: async (session) => {
+      const accessToken = session.data.accessToken.trim();
+      const account = createAccount(session.service, 'Beeper Desktop');
+      const credentials: BeeperDesktopCredentials = {
+        baseUrl: getBeeperBaseUrl(),
+        accessToken,
+      };
 
-    const contacts: Contact[] = [];
-    const conversations: Conversation[] = [];
-
-    for (const room of rooms) {
-      const contactId = stableUuid(room.roomId);
-      contacts.push({
-        id: contactId,
-        accountId: account.id,
-        serviceContactId: room.roomId,
-        displayName: room.name ?? 'Unknown',
-        username: room.roomId,
-        avatarUrl: room.avatarUrl,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+      cache?.syncAccount(account);
+      manager.postEvent({
+        type: 'event',
+        eventType: 'accounts',
+        payload: cache?.getAccounts() ?? [account],
       });
-      conversations.push(roomToConversation(account, room, contactId));
-    }
 
-    cache?.syncContacts(contacts);
-    cache?.syncConversations(conversations);
-    manager.postEvent({
-      type: 'event',
-      eventType: 'conversations',
-      payload: cache?.getConversations() ?? conversations,
-    });
-  });
+      const connection = new BeeperDesktopConnection(account.id, credentials);
+      connections.set(account.id, connection);
 
-  connectionManager.on('messagesChanged', ({ accountId, roomId, messages }) => {
-    const account = cache?.getAccount(accountId);
-    if (!account || messages.length === 0) {
-      return;
-    }
-
-    const conversationId = stableUuid(roomId);
-    const contacts = new Map<string, Contact>();
-    const dbMessages: Message[] = [];
-
-    for (const msg of messages) {
-      if (!contacts.has(msg.senderId)) {
-        contacts.set(msg.senderId, senderToContact(account, msg.senderId));
-      }
-      dbMessages.push(matrixMessageToMessage(account, conversationId, msg));
-    }
-
-    cache?.syncContacts(Array.from(contacts.values()));
-    cache?.syncMessages(dbMessages);
-
-    const conversation = cache?.getConversation(conversationId);
-    const lastMessage = dbMessages[dbMessages.length - 1];
-    if (conversation && lastMessage) {
-      cache?.syncConversation({
-        ...conversation,
-        lastMessageId: lastMessage.id,
-        updatedAt: lastMessage.createdAt,
+      connection.on('statusChanged', ({ accountId, status, error }) => {
+        syncAccountStatus(accountId, status, error);
       });
-    }
 
-    manager.postEvent({
-      type: 'event',
-      eventType: 'conversations',
-      payload: cache?.getConversations() ?? [],
-    });
-    manager.postEvent({
-      type: 'event',
-      eventType: 'messages',
-      payload: cache?.getMessagesForConversation(conversationId) ?? dbMessages,
-    });
-  });
+      connection.on('roomsChanged', ({ accountId, rooms }) => {
+        const account = cache?.getAccount(accountId);
+        if (!account) {
+          return;
+        }
 
-  connectionManager.on('error', ({ error }) => {
-    void vscode.window.showErrorMessage(`mssgs error: ${error}`);
+        const conversations = rooms.map((room) => roomToConversation(account, room));
+        const contacts = rooms.map((room) =>
+          senderToContact(account, room.roomId, room.name ?? 'Unknown'),
+        );
+
+        cache?.syncContacts(contacts);
+        cache?.syncConversations(conversations);
+        manager.postEvent({
+          type: 'event',
+          eventType: 'conversations',
+          payload: cache?.getConversations() ?? conversations,
+        });
+      });
+
+      connection.on('messagesChanged', ({ accountId, roomId, messages }) => {
+        const account = cache?.getAccount(accountId);
+        if (!account || messages.length === 0) {
+          return;
+        }
+
+        const conversationId = stableUuid(roomId);
+        const contacts = new Map<string, Contact>();
+        const dbMessages: Message[] = [];
+
+        for (const msg of messages) {
+          if (!contacts.has(msg.senderId)) {
+            contacts.set(msg.senderId, senderToContact(account, msg.senderId, msg.senderName));
+          }
+          dbMessages.push(beeperMessageToMessage(account, conversationId, msg));
+        }
+
+        cache?.syncContacts(Array.from(contacts.values()));
+        cache?.syncMessages(dbMessages);
+
+        const conversation = cache?.getConversation(conversationId);
+        const lastMessage = dbMessages[dbMessages.length - 1];
+        if (conversation && lastMessage) {
+          cache?.syncConversation({
+            ...conversation,
+            lastMessageId: lastMessage.id,
+            updatedAt: lastMessage.createdAt,
+          });
+        }
+
+        manager.postEvent({
+          type: 'event',
+          eventType: 'conversations',
+          payload: cache?.getConversations() ?? [],
+        });
+        manager.postEvent({
+          type: 'event',
+          eventType: 'messages',
+          payload: cache?.getMessagesForConversation(conversationId) ?? dbMessages,
+        });
+      });
+
+      connection.on('error', ({ error }) => {
+        void vscode.window.showErrorMessage(`mssgs error: ${error}`);
+      });
+
+      void connection.connect().catch(() => {
+        // Errors are emitted as events above.
+      });
+    },
   });
 
   // Register Beeper-like extras (shortcuts, palette, reminders, scheduling).

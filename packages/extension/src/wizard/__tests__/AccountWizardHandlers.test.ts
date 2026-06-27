@@ -49,7 +49,7 @@ describe('registerAccountWizardHandlers', () => {
     expect(response.type).toBe('response');
     const result = getResult<{ setupId: string; step: { stepId: string } }>(response);
     expect(result.setupId).toBeDefined();
-    expect(result.step.stepId).toBe('matrix-login');
+    expect(result.step.stepId).toBe('beeper-token');
   });
 
   it('handles submitAccountSetupStep', async () => {
@@ -67,8 +67,8 @@ describe('registerAccountWizardHandlers', () => {
       method: 'submitAccountSetupStep',
       payload: {
         setupId,
-        stepId: 'matrix-login',
-        data: { username: '@user:beeper.com', password: 'secret' },
+        stepId: 'beeper-token',
+        data: { accessToken: 'BEEPER_xxx' },
       },
     });
 

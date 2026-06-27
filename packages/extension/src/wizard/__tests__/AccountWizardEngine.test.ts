@@ -2,34 +2,32 @@ import { describe, expect, it } from 'vitest';
 import { AccountWizardEngine } from '../AccountWizardEngine.js';
 
 describe('AccountWizardEngine', () => {
-  it('starts Beeper/Matrix setup with a login step', () => {
+  it('starts Beeper setup with a token step', () => {
     const engine = new AccountWizardEngine();
     const result = engine.start('matrix');
 
     expect(result.setupId).toBeDefined();
-    expect(result.step.stepId).toBe('matrix-login');
+    expect(result.step.stepId).toBe('beeper-token');
   });
 
-  it('requires username and password', () => {
+  it('requires an access token', () => {
     const engine = new AccountWizardEngine();
     const { setupId } = engine.start('matrix');
 
-    const result = engine.submit(setupId, 'matrix-login', {
-      username: '',
-      password: '',
+    const result = engine.submit(setupId, 'beeper-token', {
+      accessToken: '',
     });
 
     expect(result.done).toBe(false);
-    expect(result.error).toContain('Username');
+    expect(result.error).toContain('Access token');
   });
 
-  it('completes after valid credentials', () => {
+  it('completes after a valid token', () => {
     const engine = new AccountWizardEngine();
     const { setupId } = engine.start('matrix');
 
-    const result = engine.submit(setupId, 'matrix-login', {
-      username: '@user:beeper.com',
-      password: 'secret',
+    const result = engine.submit(setupId, 'beeper-token', {
+      accessToken: 'BEEPER_xxx',
     });
 
     expect(result.done).toBe(true);
@@ -38,7 +36,7 @@ describe('AccountWizardEngine', () => {
 
   it('rejects submissions for non-existent sessions', () => {
     const engine = new AccountWizardEngine();
-    const result = engine.submit('unknown-id', 'matrix-login', {});
+    const result = engine.submit('unknown-id', 'beeper-token', {});
 
     expect(result.error).toBe('Setup session not found');
   });
@@ -49,7 +47,7 @@ describe('AccountWizardEngine', () => {
 
     const result = engine.submit(setupId, 'complete', {});
 
-    expect(result.error).toContain('Expected step matrix-login');
+    expect(result.error).toContain('Expected step beeper-token');
   });
 
   it('cancels an active session', () => {

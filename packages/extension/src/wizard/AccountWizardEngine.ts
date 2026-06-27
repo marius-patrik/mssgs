@@ -1,6 +1,6 @@
 import type { ServiceType } from '../shared/types.js';
 
-export type WizardStepId = 'matrix-login' | 'complete';
+export type WizardStepId = 'beeper-token' | 'complete';
 
 export type SetupStatus = 'active' | 'completed' | 'cancelled' | 'error';
 
@@ -49,7 +49,7 @@ export class AccountWizardEngine {
       setupId,
       service,
       status: 'active',
-      currentStepId: 'matrix-login',
+      currentStepId: 'beeper-token',
       data: {},
       error: null,
     };
@@ -130,12 +130,9 @@ export class AccountWizardEngine {
 
 function validateStep(stepId: WizardStepId, data: Record<string, string>): string | undefined {
   switch (stepId) {
-    case 'matrix-login': {
-      if (!data.username?.trim()) {
-        return 'Username is required';
-      }
-      if (!data.password) {
-        return 'Password is required';
+    case 'beeper-token': {
+      if (!data.accessToken?.trim()) {
+        return 'Access token is required';
       }
       return undefined;
     }
@@ -146,36 +143,35 @@ function validateStep(stepId: WizardStepId, data: Record<string, string>): strin
 
 function getNextStep(stepId: WizardStepId, _service: ServiceType): WizardStepId | undefined {
   switch (stepId) {
-    case 'matrix-login':
+    case 'beeper-token':
       return undefined;
     default:
       return undefined;
   }
 }
 
-function buildStep(stepId: WizardStepId, service: ServiceType): WizardStep {
+function buildStep(stepId: WizardStepId, _service: ServiceType): WizardStep {
   switch (stepId) {
-    case 'matrix-login':
+    case 'beeper-token':
       return {
-        stepId: 'matrix-login',
-        title: service === 'matrix' ? 'Sign in to Beeper' : 'Sign in',
+        stepId: 'beeper-token',
+        title: 'Connect Beeper Desktop',
         description:
-          'Enter your Beeper username and password. All your bridged chats will sync automatically.',
+          'Open Beeper Desktop → Settings → Developers → Beeper Desktop API, create a token, and paste it here. Beeper must be running on this machine.',
         fields: [
           {
-            name: 'username',
-            label: 'Username',
-            type: 'text',
-            placeholder: '@you:beeper.com',
+            name: 'accessToken',
+            label: 'Beeper Desktop API token',
+            type: 'password',
+            placeholder: 'BEEPER_...',
           },
-          { name: 'password', label: 'Password', type: 'password' },
         ],
       };
     default:
       return {
         stepId: 'complete',
         title: 'Complete',
-        description: 'Your account is being connected.',
+        description: 'Your Beeper account is being connected.',
         fields: [],
       };
   }

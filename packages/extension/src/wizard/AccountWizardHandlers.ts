@@ -10,14 +10,19 @@ export interface AccountWizardHandlersOptions {
   onComplete?: (session: WizardSession) => void | Promise<void>;
 }
 
-const DEFAULT_HOMESERVER_URL = 'https://matrix.beeper.com';
+const DEFAULT_BEEPER_BASE_URL = 'http://localhost:23373';
 
 const WIZARD_SERVICES: WizardServiceInfo[] = [
-  { service: 'matrix', displayName: 'Beeper', requiresPhone: false, requiresMatrixLogin: true },
+  {
+    service: 'matrix',
+    displayName: 'Beeper Desktop',
+    requiresPhone: false,
+    requiresMatrixLogin: true,
+  },
 ];
 
 export function registerAccountWizardHandlers(options: AccountWizardHandlersOptions): void {
-  const { bus, engine, getHomeserverUrl = () => DEFAULT_HOMESERVER_URL, onComplete } = options;
+  const { bus, engine, getHomeserverUrl = () => DEFAULT_BEEPER_BASE_URL, onComplete } = options;
 
   bus.registerHandler('getSupportedServices', () => ({ services: WIZARD_SERVICES }));
 
