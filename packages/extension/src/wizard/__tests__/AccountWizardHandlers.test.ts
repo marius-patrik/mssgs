@@ -54,7 +54,7 @@ describe('registerAccountWizardHandlers', () => {
     expect(response.type).toBe('response');
     const result = getResult<{ setupId: string; step: { stepId: string } }>(response);
     expect(result.setupId).toBeDefined();
-    expect(result.step.stepId).toBe('matrix-login');
+    expect(result.step.stepId).toBe('phone-number');
   });
 
   it('handles submitAccountSetupStep', async () => {
@@ -72,19 +72,15 @@ describe('registerAccountWizardHandlers', () => {
       method: 'submitAccountSetupStep',
       payload: {
         setupId,
-        stepId: 'matrix-login',
-        data: {
-          homeserverUrl: 'https://matrix.example.com',
-          userId: '@user:example.com',
-          password: 'secret',
-        },
+        stepId: 'phone-number',
+        data: { phoneNumber: '+1234567890' },
       },
     });
 
     expect(response.type).toBe('response');
     const result = getResult<{ done: boolean; step?: { stepId: string } }>(response);
     expect(result.done).toBe(false);
-    expect(result.step?.stepId).toBe('phone-number');
+    expect(result.step?.stepId).toBe('verify-code');
   });
 
   it('handles cancelAccountSetup', async () => {

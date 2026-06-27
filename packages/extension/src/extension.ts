@@ -41,7 +41,13 @@ export function activate(context: vscode.ExtensionContext): void {
   }));
 
   // Register account setup wizard handlers.
-  registerAccountWizardHandlers({ bus, engine: new AccountWizardEngine() });
+  registerAccountWizardHandlers({
+    bus,
+    engine: new AccountWizardEngine(),
+    getHomeserverUrl: () =>
+      vscode.workspace.getConfiguration('mssgs').get<string>('homeserverUrl') ??
+      'https://matrix.org',
+  });
 
   // Register Beeper-like extras (shortcuts, palette, reminders, scheduling).
   const extrasDisposables = registerExtras({ bus, manager, cache });

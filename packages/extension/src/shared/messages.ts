@@ -92,6 +92,7 @@ export interface MssgsRequestMap {
       status: SetupStatus;
       step?: WizardStep;
       error: string | null;
+      homeserverUrl?: string;
     };
   };
   getMessages: {

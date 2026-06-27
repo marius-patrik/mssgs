@@ -1,4 +1,8 @@
-import { DatabaseSync } from 'node:sqlite';
+import type { DatabaseSync } from 'node:sqlite';
+
+function getSqlite(): typeof import('node:sqlite') {
+  return process.getBuiltinModule('node:sqlite') as typeof import('node:sqlite');
+}
 import {
   AccountSchema,
   ContactSchema,
@@ -33,8 +37,10 @@ const intToBoolean = (value: 0 | 1 | number): boolean => value === 1;
 
 export class SqliteCache {
   private readonly db: DatabaseSync;
+  private transactionDepth = 0;
 
   constructor(dbPath: string, options: SqliteCacheOptions = {}) {
+    const { DatabaseSync } = getSqlite();
     this.db = new DatabaseSync(dbPath);
 
     if (options.enableWal !== false && dbPath !== ':memory:') {
@@ -125,7 +131,7 @@ export class SqliteCache {
     const parsed = ConversationSchema.parse(conversation);
     const stmt = this.db.prepare(
       `INSERT INTO conversations (id, account_id, service, type, title, participant_ids, last_message_id, unread_count, is_archived, is_pinned, is_favorite, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          account_id=excluded.account_id,
          service=excluded.service,
@@ -470,13 +476,31 @@ export class SqliteCache {
   }
 
   private runInTransaction(fn: () => void): void {
-    this.db.exec('BEGIN');
+    const depth = ++this.transactionDepth;
+    const isTopLevel = depth === 1;
+
+    if (isTopLevel) {
+      this.db.exec('BEGIN');
+    } else {
+      this.db.exec(`SAVEPOINT mssgs_${depth}`);
+    }
+
     try {
       fn();
-      this.db.exec('COMMIT');
+      if (isTopLevel) {
+        this.db.exec('COMMIT');
+      } else {
+        this.db.exec(`RELEASE SAVEPOINT mssgs_${depth}`);
+      }
     } catch (err) {
-      this.db.exec('ROLLBACK');
+      if (isTopLevel) {
+        this.db.exec('ROLLBACK');
+      } else {
+        this.db.exec(`ROLLBACK TO SAVEPOINT mssgs_${depth}`);
+      }
       throw err;
+    } finally {
+      this.transactionDepth--;
     }
   }
 }

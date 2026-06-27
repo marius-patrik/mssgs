@@ -1,7 +1,6 @@
 import type { ServiceType } from '../shared/types.js';
 
 export type WizardStepId =
-  | 'matrix-login'
   | 'phone-number'
   | 'verify-code'
   | 'qr-code'
@@ -52,11 +51,12 @@ export class AccountWizardEngine {
 
   start(service: ServiceType): StartResult {
     const setupId = crypto.randomUUID();
+    const firstStep = getInitialStep(service);
     const session: WizardSession = {
       setupId,
       service,
       status: 'active',
-      currentStepId: 'matrix-login',
+      currentStepId: firstStep,
       data: {},
       error: null,
     };
@@ -135,20 +135,22 @@ export class AccountWizardEngine {
   }
 }
 
+function getInitialStep(service: ServiceType): WizardStepId {
+  switch (service) {
+    case 'whatsapp':
+    case 'telegram':
+      return 'phone-number';
+    case 'instagram':
+      return 'credentials';
+    case 'imessage':
+      return 'pairing';
+    default:
+      return 'credentials';
+  }
+}
+
 function validateStep(stepId: WizardStepId, data: Record<string, string>): string | undefined {
   switch (stepId) {
-    case 'matrix-login': {
-      if (!data.homeserverUrl?.trim()) {
-        return 'Homeserver URL is required';
-      }
-      if (!data.userId?.trim()) {
-        return 'User ID is required';
-      }
-      if (!data.password) {
-        return 'Password is required';
-      }
-      return undefined;
-    }
     case 'phone-number': {
       if (!data.phoneNumber?.trim()) {
         return 'Phone number is required';
@@ -183,17 +185,6 @@ function validateStep(stepId: WizardStepId, data: Record<string, string>): strin
 
 function getNextStep(stepId: WizardStepId, service: ServiceType): WizardStepId | undefined {
   switch (stepId) {
-    case 'matrix-login':
-      if (service === 'whatsapp' || service === 'telegram') {
-        return 'phone-number';
-      }
-      if (service === 'instagram') {
-        return 'credentials';
-      }
-      if (service === 'imessage') {
-        return 'pairing';
-      }
-      return undefined;
     case 'phone-number':
       return service === 'telegram' ? 'verify-code' : 'qr-code';
     case 'verify-code':
@@ -208,22 +199,6 @@ function getNextStep(stepId: WizardStepId, service: ServiceType): WizardStepId |
 
 function buildStep(stepId: WizardStepId, service: ServiceType): WizardStep {
   switch (stepId) {
-    case 'matrix-login':
-      return {
-        stepId: 'matrix-login',
-        title: 'Matrix login',
-        description: 'Enter your Matrix homeserver credentials to host the bridge.',
-        fields: [
-          {
-            name: 'homeserverUrl',
-            label: 'Homeserver URL',
-            type: 'text',
-            placeholder: 'https://matrix.example.com',
-          },
-          { name: 'userId', label: 'User ID', type: 'text', placeholder: '@user:example.com' },
-          { name: 'password', label: 'Password', type: 'password' },
-        ],
-      };
     case 'phone-number':
       return {
         stepId: 'phone-number',
@@ -269,8 +244,8 @@ function buildStep(stepId: WizardStepId, service: ServiceType): WizardStep {
     case 'credentials':
       return {
         stepId: 'credentials',
-        title: 'Instagram credentials',
-        description: 'Enter your Instagram username and password.',
+        title: `${service} credentials`,
+        description: `Enter your ${service} username and password.`,
         fields: [
           { name: 'username', label: 'Username', type: 'text' },
           { name: 'password', label: 'Password', type: 'password' },

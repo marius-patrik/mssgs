@@ -6,22 +6,30 @@ import type { AccountWizardEngine, WizardStepId } from './AccountWizardEngine.js
 export interface AccountWizardHandlersOptions {
   bus: MessageBus;
   engine: AccountWizardEngine;
+  getHomeserverUrl?: () => string;
 }
 
+const DEFAULT_HOMESERVER_URL = 'https://matrix.org';
+
 const WIZARD_SERVICES: WizardServiceInfo[] = [
-  { service: 'whatsapp', displayName: 'WhatsApp', requiresPhone: true, requiresMatrixLogin: true },
-  { service: 'telegram', displayName: 'Telegram', requiresPhone: true, requiresMatrixLogin: true },
+  { service: 'whatsapp', displayName: 'WhatsApp', requiresPhone: true, requiresMatrixLogin: false },
+  { service: 'telegram', displayName: 'Telegram', requiresPhone: true, requiresMatrixLogin: false },
   {
     service: 'instagram',
     displayName: 'Instagram',
     requiresPhone: false,
-    requiresMatrixLogin: true,
+    requiresMatrixLogin: false,
   },
-  { service: 'imessage', displayName: 'iMessage', requiresPhone: false, requiresMatrixLogin: true },
+  {
+    service: 'imessage',
+    displayName: 'iMessage',
+    requiresPhone: false,
+    requiresMatrixLogin: false,
+  },
 ];
 
 export function registerAccountWizardHandlers(options: AccountWizardHandlersOptions): void {
-  const { bus, engine } = options;
+  const { bus, engine, getHomeserverUrl = () => DEFAULT_HOMESERVER_URL } = options;
 
   bus.registerHandler('getSupportedServices', () => ({ services: WIZARD_SERVICES }));
 
@@ -58,12 +66,15 @@ export function registerAccountWizardHandlers(options: AccountWizardHandlersOpti
           }
         : undefined;
 
+    // Attach the configured homeserver URL to completed sessions so the host
+    // can create the backend connection without asking the user for it.
     return {
       setupId,
       service: session.service,
       status: session.status,
       step,
       error: session.error,
+      ...(session.status === 'completed' ? { homeserverUrl: getHomeserverUrl() } : {}),
     };
   });
 }

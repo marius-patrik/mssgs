@@ -169,6 +169,16 @@
           "name": "Messenger"
         }
       ]
+    },
+    "configuration": {
+      "title": "mssgs",
+      "properties": {
+        "mssgs.homeserverUrl": {
+          "type": "string",
+          "default": "https://matrix.org",
+          "description": "Default Matrix homeserver URL used to host messaging bridges."
+        }
+      }
     }
   },
   "dependencies": {
