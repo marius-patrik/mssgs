@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import * as vscode from 'vscode';
 import type { MssgsEvent, MssgsMessage, MssgsRequest, MssgsResponse } from '../shared/messages.js';
 
@@ -161,6 +162,41 @@ export class WebviewManager {
 
   private getHtml(webview: vscode.Webview): string {
     const distUri = this.getDistUri();
+    const indexPath = vscode.Uri.joinPath(distUri, 'index.html').fsPath;
+    const nonce = getNonce();
+
+    let html: string;
+    try {
+      // Read the built webview HTML so all generated chunks (e.g. 413.js) are loaded.
+      html = readFileSync(indexPath, 'utf-8');
+    } catch {
+      // Fallback for tests or incomplete builds where the webview dist is missing.
+      return this.getFallbackHtml(webview, nonce);
+    }
+
+    // Rewrite static asset URLs to VSCode webview URIs and add nonces for CSP.
+    html = html.replace(/<script defer src="\/static\/js\/([^"]+)"><\/script>/g, (_, fileName) => {
+      const scriptUri = webview.asWebviewUri(
+        vscode.Uri.joinPath(distUri, 'static', 'js', fileName),
+      );
+      return `<script nonce="${nonce}" defer src="${scriptUri}"></script>`;
+    });
+    html = html.replace(/<link href="\/static\/css\/([^"]+)" rel="stylesheet">/g, (_, fileName) => {
+      const styleUri = webview.asWebviewUri(
+        vscode.Uri.joinPath(distUri, 'static', 'css', fileName),
+      );
+      return `<link href="${styleUri}" rel="stylesheet">`;
+    });
+
+    // Inject CSP before </head>.
+    const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource}; script-src 'nonce-${nonce}'; font-src ${webview.cspSource}; img-src ${webview.cspSource} data: https: http:;">`;
+    html = html.replace('</head>', `${csp}\n</head>`);
+
+    return html;
+  }
+
+  private getFallbackHtml(webview: vscode.Webview, nonce: string): string {
+    const distUri = this.getDistUri();
     const scriptUri = webview.asWebviewUri(
       vscode.Uri.joinPath(distUri, 'static', 'js', 'index.js'),
     );
@@ -170,7 +206,6 @@ export class WebviewManager {
     const styleUri = webview.asWebviewUri(
       vscode.Uri.joinPath(distUri, 'static', 'css', 'index.css'),
     );
-    const nonce = getNonce();
 
     return `<!DOCTYPE html>
 <html lang="en">
