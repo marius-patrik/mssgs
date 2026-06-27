@@ -1,4 +1,4 @@
-import type Database from 'better-sqlite3';
+import type { DatabaseSync } from 'node:sqlite';
 import { MIGRATIONS, type Migration } from './schema.js';
 
 export type { Migration };
@@ -9,7 +9,7 @@ export interface MigrationRecord {
   applied_at: string;
 }
 
-export function runMigrations(db: Database.Database): number[] {
+export function runMigrations(db: DatabaseSync): number[] {
   db.exec(`
     CREATE TABLE IF NOT EXISTS migrations (
       version INTEGER PRIMARY KEY,
@@ -18,10 +18,8 @@ export function runMigrations(db: Database.Database): number[] {
     );
   `);
 
-  const getCurrent = db.prepare<[], { version: number | null }>(
-    'SELECT MAX(version) AS version FROM migrations',
-  );
-  const currentRow = getCurrent.get();
+  const getCurrent = db.prepare('SELECT MAX(version) AS version FROM migrations');
+  const currentRow = getCurrent.get() as { version: number | null } | undefined;
   const currentVersion = currentRow?.version ?? 0;
 
   const applied: number[] = [];
@@ -31,17 +29,20 @@ export function runMigrations(db: Database.Database): number[] {
       continue;
     }
 
-    const apply = db.transaction(() => {
+    db.exec('BEGIN');
+    try {
       db.exec(migration.sql);
       db.prepare('INSERT INTO migrations (version, name, applied_at) VALUES (?, ?, ?)').run(
         migration.version,
         migration.name,
         new Date().toISOString(),
       );
-    });
-
-    apply();
-    applied.push(migration.version);
+      db.exec('COMMIT');
+      applied.push(migration.version);
+    } catch (err) {
+      db.exec('ROLLBACK');
+      throw err;
+    }
   }
 
   return applied;

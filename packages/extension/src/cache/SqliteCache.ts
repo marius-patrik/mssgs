@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import {
   AccountSchema,
   ContactSchema,
@@ -32,16 +32,16 @@ const booleanToInt = (value: boolean): 0 | 1 => (value ? 1 : 0);
 const intToBoolean = (value: 0 | 1 | number): boolean => value === 1;
 
 export class SqliteCache {
-  private readonly db: Database.Database;
+  private readonly db: DatabaseSync;
 
   constructor(dbPath: string, options: SqliteCacheOptions = {}) {
-    this.db = new Database(dbPath);
+    this.db = new DatabaseSync(dbPath);
 
     if (options.enableWal !== false && dbPath !== ':memory:') {
-      this.db.pragma('journal_mode = WAL');
+      this.db.exec('PRAGMA journal_mode = WAL');
     }
 
-    this.db.pragma('foreign_keys = ON');
+    this.db.exec('PRAGMA foreign_keys = ON');
     runMigrations(this.db);
   }
 
@@ -80,12 +80,11 @@ export class SqliteCache {
   }
 
   syncAccounts(accounts: Account[]): void {
-    const txn = this.db.transaction((items: Account[]) => {
-      for (const account of items) {
+    this.runInTransaction(() => {
+      for (const account of accounts) {
         this.syncAccount(account);
       }
     });
-    txn(accounts);
   }
 
   syncContact(contact: Contact): void {
@@ -115,19 +114,18 @@ export class SqliteCache {
   }
 
   syncContacts(contacts: Contact[]): void {
-    const txn = this.db.transaction((items: Contact[]) => {
-      for (const contact of items) {
+    this.runInTransaction(() => {
+      for (const contact of contacts) {
         this.syncContact(contact);
       }
     });
-    txn(contacts);
   }
 
   syncConversation(conversation: Conversation): void {
     const parsed = ConversationSchema.parse(conversation);
     const stmt = this.db.prepare(
       `INSERT INTO conversations (id, account_id, service, type, title, participant_ids, last_message_id, unread_count, is_archived, is_pinned, is_favorite, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(id) DO UPDATE SET
          account_id=excluded.account_id,
          service=excluded.service,
@@ -160,12 +158,11 @@ export class SqliteCache {
   }
 
   syncConversations(conversations: Conversation[]): void {
-    const txn = this.db.transaction((items: Conversation[]) => {
-      for (const conversation of items) {
+    this.runInTransaction(() => {
+      for (const conversation of conversations) {
         this.syncConversation(conversation);
       }
     });
-    txn(conversations);
   }
 
   syncMessage(message: Message): void {
@@ -203,12 +200,11 @@ export class SqliteCache {
   }
 
   syncMessages(messages: Message[]): void {
-    const txn = this.db.transaction((items: Message[]) => {
-      for (const message of items) {
+    this.runInTransaction(() => {
+      for (const message of messages) {
         this.syncMessage(message);
       }
     });
-    txn(messages);
   }
 
   syncReadState(
@@ -244,74 +240,72 @@ export class SqliteCache {
   // ---------------------------------------------------------------------------
 
   getAccount(id: string): Account | undefined {
-    const row = this.db
-      .prepare<[string], AccountRow>('SELECT * FROM accounts WHERE id = ?')
-      .get(id);
+    const row = this.db.prepare('SELECT * FROM accounts WHERE id = ?').get(id) as
+      | AccountRow
+      | undefined;
     return row ? this.accountFromRow(row) : undefined;
   }
 
   getAccounts(): Account[] {
     const rows = this.db
-      .prepare<[], AccountRow>('SELECT * FROM accounts ORDER BY display_name')
-      .all();
+      .prepare('SELECT * FROM accounts ORDER BY display_name')
+      .all() as unknown as AccountRow[];
     return rows.map((row) => this.accountFromRow(row));
   }
 
   getContact(id: string): Contact | undefined {
-    const row = this.db
-      .prepare<[string], ContactRow>('SELECT * FROM contacts WHERE id = ?')
-      .get(id);
+    const row = this.db.prepare('SELECT * FROM contacts WHERE id = ?').get(id) as
+      | ContactRow
+      | undefined;
     return row ? this.contactFromRow(row) : undefined;
   }
 
   getContacts(): Contact[] {
     const rows = this.db
-      .prepare<[], ContactRow>('SELECT * FROM contacts ORDER BY display_name')
-      .all();
+      .prepare('SELECT * FROM contacts ORDER BY display_name')
+      .all() as unknown as ContactRow[];
     return rows.map((row) => this.contactFromRow(row));
   }
 
   getConversation(id: string): Conversation | undefined {
-    const row = this.db
-      .prepare<[string], ConversationRow>('SELECT * FROM conversations WHERE id = ?')
-      .get(id);
+    const row = this.db.prepare('SELECT * FROM conversations WHERE id = ?').get(id) as
+      | ConversationRow
+      | undefined;
     return row ? this.conversationFromRow(row) : undefined;
   }
 
   getConversations(): Conversation[] {
     const rows = this.db
-      .prepare<[], ConversationRow>('SELECT * FROM conversations ORDER BY updated_at DESC')
-      .all();
+      .prepare('SELECT * FROM conversations ORDER BY updated_at DESC')
+      .all() as unknown as ConversationRow[];
     return rows.map((row) => this.conversationFromRow(row));
   }
 
   getMessage(id: string): Message | undefined {
-    const row = this.db
-      .prepare<[string], MessageRow>('SELECT * FROM messages WHERE id = ?')
-      .get(id);
+    const row = this.db.prepare('SELECT * FROM messages WHERE id = ?').get(id) as
+      | MessageRow
+      | undefined;
     return row ? this.messageFromRow(row) : undefined;
   }
 
   getMessagesForConversation(conversationId: string, limit = 200): Message[] {
     const rows = this.db
-      .prepare<[string, number], MessageRow>(
-        'SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ?',
-      )
-      .all(conversationId, limit);
+      .prepare('SELECT * FROM messages WHERE conversation_id = ? ORDER BY created_at ASC LIMIT ?')
+      .all(conversationId, limit) as unknown as MessageRow[];
     return rows.map((row) => this.messageFromRow(row));
   }
 
   getAllMessages(): Message[] {
     const rows = this.db
-      .prepare<[], MessageRow>('SELECT * FROM messages ORDER BY created_at ASC')
-      .all();
+      .prepare('SELECT * FROM messages ORDER BY created_at ASC')
+      .all() as unknown as MessageRow[];
     return rows.map((row) => this.messageFromRow(row));
   }
 
   getReadState(conversationId: string): ReadState | undefined {
     const row = this.db
-      .prepare<[string], ReadStateRow>('SELECT * FROM read_state WHERE conversation_id = ?')
-      .get(conversationId);
+      .prepare('SELECT * FROM read_state WHERE conversation_id = ?')
+      .get(conversationId) as ReadStateRow | undefined;
     return row ? this.readStateFromRow(row) : undefined;
   }
 
@@ -326,7 +320,7 @@ export class SqliteCache {
     }
 
     const rows = this.db
-      .prepare<[string, number], MessageSearchResult>(
+      .prepare(
         `SELECT m.id AS messageId, m.conversation_id AS conversationId, m.text, rank
          FROM messages_fts fts
          JOIN messages m ON m.rowid = fts.rowid
@@ -334,7 +328,7 @@ export class SqliteCache {
          ORDER BY rank
          LIMIT ?`,
       )
-      .all(ftsQuery, limit);
+      .all(ftsQuery, limit) as unknown as MessageSearchResult[];
 
     return rows;
   }
@@ -363,7 +357,7 @@ export class SqliteCache {
   hydrate(state: NormalizedState): void {
     const parsed = NormalizedStateSchema.parse(state);
 
-    const txn = this.db.transaction(() => {
+    this.runInTransaction(() => {
       this.clear();
 
       this.syncAccounts(Object.values(parsed.accounts));
@@ -371,8 +365,6 @@ export class SqliteCache {
       this.syncConversations(Object.values(parsed.conversations));
       this.syncMessages(Object.values(parsed.messages));
     });
-
-    txn();
   }
 
   clear(): void {
@@ -475,5 +467,16 @@ export class SqliteCache {
         return `"${escaped}"*`;
       })
       .join(' ');
+  }
+
+  private runInTransaction(fn: () => void): void {
+    this.db.exec('BEGIN');
+    try {
+      fn();
+      this.db.exec('COMMIT');
+    } catch (err) {
+      this.db.exec('ROLLBACK');
+      throw err;
+    }
   }
 }
