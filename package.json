@@ -21,6 +21,7 @@
     "format": "biome format . --write",
     "typecheck": "npm run typecheck --workspaces",
     "test": "npm run test --workspaces",
+    "test:smoke": "playwright test",
     "build": "npm run build --workspace=packages/webview && npm run build --workspace=packages/extension && npm run copy:webview",
     "copy:webview": "rm -rf packages/extension/out/webview-dist && cp -R packages/webview/dist packages/extension/out/webview-dist",
     "package": "npm run build && npm run package --workspace=packages/extension",
@@ -31,6 +32,7 @@
     "@biomejs/biome": "1.8.3",
     "@commitlint/cli": "^19.0.0",
     "@commitlint/config-conventional": "^19.0.0",
+    "@playwright/test": "^1.45.0",
     "husky": "^9.0.0",
     "lint-staged": "^15.0.0"
   },

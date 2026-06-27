@@ -20,6 +20,10 @@ Thumbs.db
 .vscode-test/
 *.code-workspace
 
+# Test artifacts
+test-results/
+playwright-report/
+
 # Worktrees
 .worktrees/
 

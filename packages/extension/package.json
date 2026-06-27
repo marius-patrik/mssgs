@@ -2,22 +2,50 @@
   "name": "mssgs",
   "displayName": "mssgs",
   "version": "0.1.0",
+  "publisher": "marius-patrik",
   "description": "Beeper-like unified messaging inside VSCode",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#0f172a",
+    "theme": "dark"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/marius-patrik/mssgs.git"
   },
+  "bugs": {
+    "url": "https://github.com/marius-patrik/mssgs/issues"
+  },
+  "homepage": "https://github.com/marius-patrik/mssgs#readme",
   "license": "MIT",
+  "pricing": "Free",
+  "keywords": ["messaging", "matrix", "chat", "beeper", "unified", "messenger"],
+  "screenshots": [
+    {
+      "path": "media/screenshot-inbox.png",
+      "caption": "mssgs inbox with unified conversations"
+    },
+    {
+      "path": "media/screenshot-thread.png",
+      "caption": "mssgs message thread and composer"
+    },
+    {
+      "path": "media/screenshot-wizard.png",
+      "caption": "mssgs account setup wizard"
+    }
+  ],
   "type": "module",
   "main": "./out/extension.js",
   "scripts": {
     "build": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "test": "vitest run",
+    "test:integration": "tsc -p tsconfig.test.json && vscode-test",
     "typecheck": "tsc --noEmit",
-    "package": "vsce package --no-dependencies"
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies --packagePath mssgs-0.1.0.vsix"
   },
-  "categories": ["Other"],
+  "categories": ["Messaging", "Other"],
   "activationEvents": ["onStartupFinished"],
   "contributes": {
     "commands": [
@@ -150,6 +178,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@types/mocha": "^10.0.10",
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.90.0",
     "@vscode/test-cli": "^0.0.9",

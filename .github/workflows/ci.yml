@@ -20,3 +20,34 @@ jobs:
       - run: npm run test
       - run: npm run build
       - run: npm run package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mssgs-vsix
+          path: packages/extension/mssgs-0.1.0.vsix
+          if-no-files-found: error
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: build
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:integration --workspace=packages/extension
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:smoke
