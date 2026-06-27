@@ -20,10 +20,13 @@ jobs:
       - run: npm run test
       - run: npm run build
       - run: npm run package
+      - name: Get extension version
+        id: version
+        run: echo "version=$(node -p "require('./packages/extension/package.json').version")" >> "$GITHUB_OUTPUT"
       - uses: actions/upload-artifact@v4
         with:
           name: mssgs-vsix
-          path: packages/extension/mssgs-0.1.0.vsix
+          path: packages/extension/mssgs-${{ steps.version.outputs.version }}.vsix
           if-no-files-found: error
 
   integration-test:
