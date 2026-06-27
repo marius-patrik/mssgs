@@ -1,12 +1,6 @@
 import type { ServiceType } from '../shared/types.js';
 
-export type WizardStepId =
-  | 'phone-number'
-  | 'verify-code'
-  | 'qr-code'
-  | 'credentials'
-  | 'pairing'
-  | 'complete';
+export type WizardStepId = 'matrix-login' | 'complete';
 
 export type SetupStatus = 'active' | 'completed' | 'cancelled' | 'error';
 
@@ -51,12 +45,11 @@ export class AccountWizardEngine {
 
   start(service: ServiceType): StartResult {
     const setupId = crypto.randomUUID();
-    const firstStep = getInitialStep(service);
     const session: WizardSession = {
       setupId,
       service,
       status: 'active',
-      currentStepId: firstStep,
+      currentStepId: 'matrix-login',
       data: {},
       error: null,
     };
@@ -135,35 +128,9 @@ export class AccountWizardEngine {
   }
 }
 
-function getInitialStep(service: ServiceType): WizardStepId {
-  switch (service) {
-    case 'whatsapp':
-    case 'telegram':
-      return 'phone-number';
-    case 'instagram':
-      return 'credentials';
-    case 'imessage':
-      return 'pairing';
-    default:
-      return 'credentials';
-  }
-}
-
 function validateStep(stepId: WizardStepId, data: Record<string, string>): string | undefined {
   switch (stepId) {
-    case 'phone-number': {
-      if (!data.phoneNumber?.trim()) {
-        return 'Phone number is required';
-      }
-      return undefined;
-    }
-    case 'verify-code': {
-      if (!data.code?.trim()) {
-        return 'Verification code is required';
-      }
-      return undefined;
-    }
-    case 'credentials': {
+    case 'matrix-login': {
       if (!data.username?.trim()) {
         return 'Username is required';
       }
@@ -172,25 +139,14 @@ function validateStep(stepId: WizardStepId, data: Record<string, string>): strin
       }
       return undefined;
     }
-    case 'pairing': {
-      if (!data.pairingCode?.trim()) {
-        return 'Pairing code is required';
-      }
-      return undefined;
-    }
     default:
       return undefined;
   }
 }
 
-function getNextStep(stepId: WizardStepId, service: ServiceType): WizardStepId | undefined {
+function getNextStep(stepId: WizardStepId, _service: ServiceType): WizardStepId | undefined {
   switch (stepId) {
-    case 'phone-number':
-      return service === 'telegram' ? 'verify-code' : 'qr-code';
-    case 'verify-code':
-    case 'qr-code':
-    case 'credentials':
-    case 'pairing':
+    case 'matrix-login':
       return undefined;
     default:
       return undefined;
@@ -199,70 +155,20 @@ function getNextStep(stepId: WizardStepId, service: ServiceType): WizardStepId |
 
 function buildStep(stepId: WizardStepId, service: ServiceType): WizardStep {
   switch (stepId) {
-    case 'phone-number':
+    case 'matrix-login':
       return {
-        stepId: 'phone-number',
-        title: 'Phone number',
-        description: `Enter the phone number for your ${service} account.`,
+        stepId: 'matrix-login',
+        title: service === 'matrix' ? 'Sign in to Beeper' : 'Sign in',
+        description:
+          'Enter your Beeper username and password. All your bridged chats will sync automatically.',
         fields: [
           {
-            name: 'phoneNumber',
-            label: 'Phone number',
-            type: 'tel',
-            placeholder: '+1 234 567 890',
-          },
-        ],
-      };
-    case 'verify-code':
-      return {
-        stepId: 'verify-code',
-        title: 'Verification code',
-        description: 'Enter the code sent to your phone by the bridge bot.',
-        fields: [
-          {
-            name: 'code',
-            label: 'Verification code',
+            name: 'username',
+            label: 'Username',
             type: 'text',
-            placeholder: '123456',
+            placeholder: '@you:beeper.com',
           },
-        ],
-      };
-    case 'qr-code':
-      return {
-        stepId: 'qr-code',
-        title: 'Scan QR code',
-        description: 'Scan the QR code with WhatsApp on your phone, then confirm below.',
-        fields: [
-          {
-            name: 'qrCode',
-            label: 'QR code data',
-            type: 'qr',
-            value: `mssgs://whatsapp/login?token=${crypto.randomUUID()}`,
-          },
-        ],
-      };
-    case 'credentials':
-      return {
-        stepId: 'credentials',
-        title: `${service} credentials`,
-        description: `Enter your ${service} username and password.`,
-        fields: [
-          { name: 'username', label: 'Username', type: 'text' },
           { name: 'password', label: 'Password', type: 'password' },
-        ],
-      };
-    case 'pairing':
-      return {
-        stepId: 'pairing',
-        title: 'iMessage pairing',
-        description: 'Enter the pairing code shown in Messages on your Mac.',
-        fields: [
-          {
-            name: 'pairingCode',
-            label: 'Pairing code',
-            type: 'text',
-            placeholder: '000-000',
-          },
         ],
       };
     default:

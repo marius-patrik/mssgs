@@ -6,6 +6,7 @@ import type {
   BackendCredentials,
   MatrixClientFactory,
   MatrixClientLike,
+  MatrixMessageInfo,
   MatrixRoomInfo,
   RawMatrixRoom,
 } from './types.js';
@@ -136,7 +137,9 @@ export class MatrixBackendConnection
 
     if (syncState === 'SYNCING' || syncState === 'PREPARED') {
       this.setStatus('connected');
-      this.emit('roomsChanged', { accountId: this.accountId, rooms: this.getRooms() });
+      const rooms = this.getRooms();
+      this.emit('roomsChanged', { accountId: this.accountId, rooms });
+      this.emitMessagesForAllRooms();
     } else if (syncState === 'ERROR') {
       this.setStatus('error', syncError);
       if (syncError) {
@@ -146,6 +149,92 @@ export class MatrixBackendConnection
       this.setStatus('disconnected');
     }
   };
+
+  private emitMessagesForAllRooms(): void {
+    if (!this.client) {
+      return;
+    }
+
+    const sdkClient = this.client as unknown as {
+      getRooms(): Array<{
+        roomId: string;
+        getLiveTimeline(): { getEvents(): Array<unknown> };
+      }>;
+      getUserId(): string | null;
+      decryptEventIfNeeded?(event: unknown): Promise<void>;
+    };
+
+    for (const room of sdkClient.getRooms()) {
+      const messages = this.extractMessages(sdkClient, room);
+      if (messages.length > 0) {
+        this.emit('messagesChanged', {
+          accountId: this.accountId,
+          roomId: room.roomId,
+          messages,
+        });
+      }
+    }
+  }
+
+  private extractMessages(
+    sdkClient: {
+      getUserId(): string | null;
+      decryptEventIfNeeded?(event: unknown): Promise<void>;
+    },
+    room: {
+      roomId: string;
+      getLiveTimeline?(): { getEvents(): Array<unknown> };
+    },
+  ): MatrixMessageInfo[] {
+    const myUserId = sdkClient.getUserId();
+    const getLiveTimeline = room.getLiveTimeline;
+    if (typeof getLiveTimeline !== 'function') {
+      return [];
+    }
+    const events = getLiveTimeline.call(room).getEvents();
+    const messages: MatrixMessageInfo[] = [];
+
+    for (const event of events.slice(-50)) {
+      const ev = event as {
+        getType(): string;
+        getSender(): string | null;
+        getId(): string;
+        getTs(): number;
+        getContent(): Record<string, unknown>;
+        isEncrypted?(): boolean;
+      };
+
+      if (ev.getType() !== 'm.room.message') {
+        continue;
+      }
+
+      if (ev.isEncrypted?.()) {
+        try {
+          void sdkClient.decryptEventIfNeeded?.(event);
+        } catch {
+          // Ignore decryption failures; encrypted messages will be skipped.
+        }
+      }
+
+      const content = ev.getContent();
+      const body = typeof content.body === 'string' ? content.body : undefined;
+      if (!body) {
+        continue;
+      }
+
+      const senderId = ev.getSender() ?? '@unknown:unknown';
+      messages.push({
+        id: ev.getId(),
+        roomId: room.roomId,
+        senderId,
+        text: body,
+        timestamp: ev.getTs(),
+        isFromMe: senderId === myUserId,
+      });
+    }
+
+    return messages;
+  }
 
   private handleLoggedOut = (): void => {
     this.setStatus('error', 'Session logged out by server');

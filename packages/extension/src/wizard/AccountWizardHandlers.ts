@@ -1,35 +1,23 @@
 import type { MessageBus } from '../shared/messages.js';
 import type { SetupStatus, WizardServiceInfo, WizardStep } from '../shared/messages.js';
 import type { ServiceType } from '../shared/types.js';
-import type { AccountWizardEngine, WizardStepId } from './AccountWizardEngine.js';
+import type { AccountWizardEngine, WizardSession, WizardStepId } from './AccountWizardEngine.js';
 
 export interface AccountWizardHandlersOptions {
   bus: MessageBus;
   engine: AccountWizardEngine;
   getHomeserverUrl?: () => string;
+  onComplete?: (session: WizardSession) => void | Promise<void>;
 }
 
-const DEFAULT_HOMESERVER_URL = 'https://matrix.org';
+const DEFAULT_HOMESERVER_URL = 'https://matrix.beeper.com';
 
 const WIZARD_SERVICES: WizardServiceInfo[] = [
-  { service: 'whatsapp', displayName: 'WhatsApp', requiresPhone: true, requiresMatrixLogin: false },
-  { service: 'telegram', displayName: 'Telegram', requiresPhone: true, requiresMatrixLogin: false },
-  {
-    service: 'instagram',
-    displayName: 'Instagram',
-    requiresPhone: false,
-    requiresMatrixLogin: false,
-  },
-  {
-    service: 'imessage',
-    displayName: 'iMessage',
-    requiresPhone: false,
-    requiresMatrixLogin: false,
-  },
+  { service: 'matrix', displayName: 'Beeper', requiresPhone: false, requiresMatrixLogin: true },
 ];
 
 export function registerAccountWizardHandlers(options: AccountWizardHandlersOptions): void {
-  const { bus, engine, getHomeserverUrl = () => DEFAULT_HOMESERVER_URL } = options;
+  const { bus, engine, getHomeserverUrl = () => DEFAULT_HOMESERVER_URL, onComplete } = options;
 
   bus.registerHandler('getSupportedServices', () => ({ services: WIZARD_SERVICES }));
 
@@ -39,7 +27,16 @@ export function registerAccountWizardHandlers(options: AccountWizardHandlersOpti
   });
 
   bus.registerHandler('submitAccountSetupStep', ({ setupId, stepId, data }) => {
-    return engine.submit(setupId, stepId as WizardStepId, data ?? {});
+    const result = engine.submit(setupId, stepId as WizardStepId, data ?? {});
+
+    if (result.done && onComplete) {
+      const session = engine.status(setupId);
+      if (session) {
+        void onComplete(session);
+      }
+    }
+
+    return result;
   });
 
   bus.registerHandler('cancelAccountSetup', ({ setupId }) => engine.cancel(setupId));

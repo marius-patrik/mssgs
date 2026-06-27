@@ -2,61 +2,33 @@ import { describe, expect, it } from 'vitest';
 import { AccountWizardEngine } from '../AccountWizardEngine.js';
 
 describe('AccountWizardEngine', () => {
-  it('starts WhatsApp setup with phone-number step', () => {
+  it('starts Beeper/Matrix setup with a login step', () => {
     const engine = new AccountWizardEngine();
-    const result = engine.start('whatsapp');
+    const result = engine.start('matrix');
 
     expect(result.setupId).toBeDefined();
-    expect(result.step.stepId).toBe('phone-number');
+    expect(result.step.stepId).toBe('matrix-login');
   });
 
-  it('starts Telegram setup with phone-number step', () => {
+  it('requires username and password', () => {
     const engine = new AccountWizardEngine();
-    const result = engine.start('telegram');
+    const { setupId } = engine.start('matrix');
 
-    expect(result.step.stepId).toBe('phone-number');
-  });
-
-  it('starts Instagram setup with credentials step', () => {
-    const engine = new AccountWizardEngine();
-    const result = engine.start('instagram');
-
-    expect(result.step.stepId).toBe('credentials');
-  });
-
-  it('starts iMessage setup with pairing step', () => {
-    const engine = new AccountWizardEngine();
-    const result = engine.start('imessage');
-
-    expect(result.step.stepId).toBe('pairing');
-  });
-
-  it('advances WhatsApp from phone-number to qr-code', () => {
-    const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('whatsapp');
-
-    const result = engine.submit(setupId, 'phone-number', { phoneNumber: '+1234567890' });
+    const result = engine.submit(setupId, 'matrix-login', {
+      username: '',
+      password: '',
+    });
 
     expect(result.done).toBe(false);
-    expect(result.step?.stepId).toBe('qr-code');
-    expect(result.error).toBeUndefined();
+    expect(result.error).toContain('Username');
   });
 
-  it('advances Telegram from phone-number to verify-code', () => {
+  it('completes after valid credentials', () => {
     const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('telegram');
+    const { setupId } = engine.start('matrix');
 
-    const result = engine.submit(setupId, 'phone-number', { phoneNumber: '+1234567890' });
-
-    expect(result.step?.stepId).toBe('verify-code');
-  });
-
-  it('completes Instagram setup after credentials', () => {
-    const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('instagram');
-
-    const result = engine.submit(setupId, 'credentials', {
-      username: 'instauser',
+    const result = engine.submit(setupId, 'matrix-login', {
+      username: '@user:beeper.com',
       password: 'secret',
     });
 
@@ -64,45 +36,25 @@ describe('AccountWizardEngine', () => {
     expect(engine.status(setupId)?.status).toBe('completed');
   });
 
-  it('completes iMessage setup after pairing code', () => {
-    const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('imessage');
-
-    const result = engine.submit(setupId, 'pairing', { pairingCode: '123-456' });
-
-    expect(result.done).toBe(true);
-  });
-
-  it('returns validation errors for missing fields', () => {
-    const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('whatsapp');
-
-    const result = engine.submit(setupId, 'phone-number', { phoneNumber: '' });
-
-    expect(result.done).toBe(false);
-    expect(result.error).toContain('Phone number');
-    expect(engine.status(setupId)?.status).toBe('error');
-  });
-
   it('rejects submissions for non-existent sessions', () => {
     const engine = new AccountWizardEngine();
-    const result = engine.submit('unknown-id', 'phone-number', {});
+    const result = engine.submit('unknown-id', 'matrix-login', {});
 
     expect(result.error).toBe('Setup session not found');
   });
 
   it('rejects submissions for wrong step', () => {
     const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('whatsapp');
+    const { setupId } = engine.start('matrix');
 
-    const result = engine.submit(setupId, 'credentials', { username: 'x', password: 'y' });
+    const result = engine.submit(setupId, 'complete', {});
 
-    expect(result.error).toContain('Expected step phone-number');
+    expect(result.error).toContain('Expected step matrix-login');
   });
 
   it('cancels an active session', () => {
     const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('whatsapp');
+    const { setupId } = engine.start('matrix');
 
     expect(engine.cancel(setupId)).toEqual({ cancelled: true });
     expect(engine.status(setupId)?.status).toBe('cancelled');

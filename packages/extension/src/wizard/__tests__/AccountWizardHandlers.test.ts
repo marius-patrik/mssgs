@@ -34,13 +34,8 @@ describe('registerAccountWizardHandlers', () => {
 
     expect(response.type).toBe('response');
     const result = getResult<{ services: Array<{ service: string }> }>(response);
-    expect(result.services).toHaveLength(4);
-    expect(result.services.map((s) => s.service).sort()).toEqual([
-      'imessage',
-      'instagram',
-      'telegram',
-      'whatsapp',
-    ]);
+    expect(result.services).toHaveLength(1);
+    expect(result.services.map((s) => s.service)).toEqual(['matrix']);
   });
 
   it('handles startAccountSetup', async () => {
@@ -54,7 +49,7 @@ describe('registerAccountWizardHandlers', () => {
     expect(response.type).toBe('response');
     const result = getResult<{ setupId: string; step: { stepId: string } }>(response);
     expect(result.setupId).toBeDefined();
-    expect(result.step.stepId).toBe('phone-number');
+    expect(result.step.stepId).toBe('matrix-login');
   });
 
   it('handles submitAccountSetupStep', async () => {
@@ -62,7 +57,7 @@ describe('registerAccountWizardHandlers', () => {
       type: 'request',
       id: 'req-3',
       method: 'startAccountSetup',
-      payload: { service: 'telegram' },
+      payload: { service: 'matrix' },
     });
     const { setupId } = getResult<{ setupId: string }>(start);
 
@@ -72,15 +67,14 @@ describe('registerAccountWizardHandlers', () => {
       method: 'submitAccountSetupStep',
       payload: {
         setupId,
-        stepId: 'phone-number',
-        data: { phoneNumber: '+1234567890' },
+        stepId: 'matrix-login',
+        data: { username: '@user:beeper.com', password: 'secret' },
       },
     });
 
     expect(response.type).toBe('response');
     const result = getResult<{ done: boolean; step?: { stepId: string } }>(response);
-    expect(result.done).toBe(false);
-    expect(result.step?.stepId).toBe('verify-code');
+    expect(result.done).toBe(true);
   });
 
   it('handles cancelAccountSetup', async () => {

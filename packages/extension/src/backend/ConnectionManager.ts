@@ -16,6 +16,11 @@ import type {
 export interface ConnectionManagerEvents extends BackendConnectionEvents {
   accountAdded: { account: ServiceAccount };
   accountRemoved: { accountId: string };
+  messagesChanged: {
+    accountId: string;
+    roomId: string;
+    messages: import('./types.js').MatrixMessageInfo[];
+  };
 }
 
 export interface AddAccountInput {
@@ -155,6 +160,7 @@ export class ConnectionManager extends TypedEmitter<ConnectionManagerEvents> {
   private forwardConnectionEvents(connection: BackendConnection): void {
     connection.on('statusChanged', (payload) => this.emit('statusChanged', payload));
     connection.on('roomsChanged', (payload) => this.emit('roomsChanged', payload));
+    connection.on('messagesChanged', (payload) => this.emit('messagesChanged', payload));
     connection.on('error', (payload) => this.emit('error', payload));
   }
 }

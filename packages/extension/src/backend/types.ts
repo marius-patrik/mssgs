@@ -35,6 +35,15 @@ export interface ServiceAccount {
   credentials: BackendCredentials;
 }
 
+export interface MatrixMessageInfo {
+  id: string;
+  roomId: string;
+  senderId: string;
+  text: string;
+  timestamp: number;
+  isFromMe: boolean;
+}
+
 export interface BackendConnectionEvents {
   statusChanged: {
     accountId: string;
@@ -44,6 +53,11 @@ export interface BackendConnectionEvents {
   roomsChanged: {
     accountId: string;
     rooms: MatrixRoomInfo[];
+  };
+  messagesChanged: {
+    accountId: string;
+    roomId: string;
+    messages: MatrixMessageInfo[];
   };
   error: {
     accountId: string;
