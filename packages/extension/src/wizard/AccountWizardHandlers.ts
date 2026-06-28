@@ -10,19 +10,30 @@ export interface AccountWizardHandlersOptions {
   onComplete?: (session: WizardSession) => void | Promise<void>;
 }
 
-const DEFAULT_BEEPER_BASE_URL = 'http://localhost:23373';
-
 const WIZARD_SERVICES: WizardServiceInfo[] = [
   {
-    service: 'matrix',
-    displayName: 'Beeper Desktop',
+    service: 'whatsapp',
+    displayName: 'WhatsApp',
     requiresPhone: false,
-    requiresMatrixLogin: true,
+    requiresMatrixLogin: false,
+  },
+  { service: 'telegram', displayName: 'Telegram', requiresPhone: true, requiresMatrixLogin: false },
+  {
+    service: 'instagram',
+    displayName: 'Instagram',
+    requiresPhone: false,
+    requiresMatrixLogin: false,
+  },
+  {
+    service: 'imessage',
+    displayName: 'iMessage',
+    requiresPhone: false,
+    requiresMatrixLogin: false,
   },
 ];
 
 export function registerAccountWizardHandlers(options: AccountWizardHandlersOptions): void {
-  const { bus, engine, getHomeserverUrl = () => DEFAULT_BEEPER_BASE_URL, onComplete } = options;
+  const { bus, engine, onComplete } = options;
 
   bus.registerHandler('getSupportedServices', () => ({ services: WIZARD_SERVICES }));
 
@@ -51,7 +62,7 @@ export function registerAccountWizardHandlers(options: AccountWizardHandlersOpti
     if (!session) {
       return {
         setupId,
-        service: 'matrix' as ServiceType,
+        service: 'whatsapp' as ServiceType,
         status: 'error' as SetupStatus,
         step: undefined,
         error: 'Setup session not found',
@@ -68,15 +79,12 @@ export function registerAccountWizardHandlers(options: AccountWizardHandlersOpti
           }
         : undefined;
 
-    // Attach the configured homeserver URL to completed sessions so the host
-    // can create the backend connection without asking the user for it.
     return {
       setupId,
       service: session.service,
       status: session.status,
       step,
       error: session.error,
-      ...(session.status === 'completed' ? { homeserverUrl: getHomeserverUrl() } : {}),
     };
   });
 }

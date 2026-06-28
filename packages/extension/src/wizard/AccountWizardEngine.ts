@@ -1,6 +1,12 @@
 import type { ServiceType } from '../shared/types.js';
 
-export type WizardStepId = 'beeper-token' | 'complete';
+export type WizardStepId =
+  | 'phone-number'
+  | 'verify-code'
+  | 'qr-code'
+  | 'credentials'
+  | 'pairing'
+  | 'complete';
 
 export type SetupStatus = 'active' | 'completed' | 'cancelled' | 'error';
 
@@ -45,11 +51,12 @@ export class AccountWizardEngine {
 
   start(service: ServiceType): StartResult {
     const setupId = crypto.randomUUID();
+    const firstStep = getInitialStep(service);
     const session: WizardSession = {
       setupId,
       service,
       status: 'active',
-      currentStepId: 'beeper-token',
+      currentStepId: firstStep,
       data: {},
       error: null,
     };
@@ -128,12 +135,53 @@ export class AccountWizardEngine {
   }
 }
 
+function getInitialStep(service: ServiceType): WizardStepId {
+  switch (service) {
+    case 'whatsapp':
+      return 'qr-code';
+    case 'telegram':
+      return 'phone-number';
+    case 'instagram':
+      return 'credentials';
+    case 'imessage':
+      return 'pairing';
+    default:
+      return 'credentials';
+  }
+}
+
 function validateStep(stepId: WizardStepId, data: Record<string, string>): string | undefined {
   switch (stepId) {
-    case 'beeper-token': {
-      if (!data.accessToken?.trim()) {
-        return 'Access token is required';
+    case 'phone-number': {
+      if (!data.phoneNumber?.trim()) {
+        return 'Phone number is required';
       }
+      if (!data.apiId?.trim()) {
+        return 'API ID is required';
+      }
+      if (!data.apiHash?.trim()) {
+        return 'API hash is required';
+      }
+      return undefined;
+    }
+    case 'verify-code': {
+      if (!data.code?.trim()) {
+        return 'Verification code is required';
+      }
+      return undefined;
+    }
+    case 'qr-code':
+      return undefined;
+    case 'credentials': {
+      if (!data.username?.trim()) {
+        return 'Username is required';
+      }
+      if (!data.password) {
+        return 'Password is required';
+      }
+      return undefined;
+    }
+    case 'pairing': {
       return undefined;
     }
     default:
@@ -141,37 +189,90 @@ function validateStep(stepId: WizardStepId, data: Record<string, string>): strin
   }
 }
 
-function getNextStep(stepId: WizardStepId, _service: ServiceType): WizardStepId | undefined {
+function getNextStep(stepId: WizardStepId, service: ServiceType): WizardStepId | undefined {
   switch (stepId) {
-    case 'beeper-token':
+    case 'phone-number':
+      return service === 'telegram' ? 'verify-code' : undefined;
+    case 'verify-code':
+    case 'qr-code':
+    case 'credentials':
+    case 'pairing':
       return undefined;
     default:
       return undefined;
   }
 }
 
-function buildStep(stepId: WizardStepId, _service: ServiceType): WizardStep {
+function buildStep(stepId: WizardStepId, service: ServiceType): WizardStep {
   switch (stepId) {
-    case 'beeper-token':
+    case 'phone-number':
       return {
-        stepId: 'beeper-token',
-        title: 'Connect Beeper Desktop',
-        description:
-          'Open Beeper Desktop → Settings → Developers → Beeper Desktop API, create a token, and paste it here. Beeper must be running on this machine.',
+        stepId: 'phone-number',
+        title: 'Telegram login',
+        description: 'Enter your Telegram phone number and API credentials from my.telegram.org.',
         fields: [
           {
-            name: 'accessToken',
-            label: 'Beeper Desktop API token',
-            type: 'password',
-            placeholder: 'BEEPER_...',
+            name: 'phoneNumber',
+            label: 'Phone number',
+            type: 'tel',
+            placeholder: '+1 234 567 890',
+          },
+          { name: 'apiId', label: 'API ID', type: 'text' },
+          { name: 'apiHash', label: 'API hash', type: 'password' },
+        ],
+      };
+    case 'verify-code':
+      return {
+        stepId: 'verify-code',
+        title: 'Verification code',
+        description: 'Enter the code sent to your Telegram app.',
+        fields: [
+          {
+            name: 'code',
+            label: 'Verification code',
+            type: 'text',
+            placeholder: '123456',
           },
         ],
+      };
+    case 'qr-code':
+      return {
+        stepId: 'qr-code',
+        title: 'Scan QR code',
+        description:
+          'Open WhatsApp on your phone → Menu → Linked Devices → Link a Device, then scan the QR code when it appears here.',
+        fields: [
+          {
+            name: 'qrCode',
+            label: 'QR code',
+            type: 'qr',
+            value: 'pending',
+          },
+        ],
+      };
+    case 'credentials':
+      return {
+        stepId: 'credentials',
+        title: `${service} credentials`,
+        description: `Enter your ${service} username and password.`,
+        fields: [
+          { name: 'username', label: 'Username', type: 'text' },
+          { name: 'password', label: 'Password', type: 'password' },
+        ],
+      };
+    case 'pairing':
+      return {
+        stepId: 'pairing',
+        title: 'iMessage',
+        description:
+          'Make sure you are signed into iMessage on this Mac. Click Connect to start syncing.',
+        fields: [],
       };
     default:
       return {
         stepId: 'complete',
         title: 'Complete',
-        description: 'Your Beeper account is being connected.',
+        description: 'Your account is being connected.',
         fields: [],
       };
   }

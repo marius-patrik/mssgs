@@ -10,7 +10,8 @@
       "**/.vscode-test/**",
       "test-results/**",
       "playwright-report/**",
-      "*.vsix"
+      "*.vsix",
+      "**/.vsix-staging/**"
     ]
   },
   "organizeImports": {

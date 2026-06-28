@@ -5,37 +5,37 @@ import { WizardStepForm } from '../../../components/wizard/WizardStepForm';
 
 describe('WizardStepForm', () => {
   const step = {
-    stepId: 'matrix-login' as const,
-    title: 'Matrix login',
-    description: 'Enter credentials',
+    stepId: 'phone-number' as const,
+    title: 'Telegram login',
+    description: 'Enter your phone number and API credentials.',
     fields: [
-      { name: 'homeserverUrl', label: 'Homeserver URL', type: 'text' as const },
-      { name: 'userId', label: 'User ID', type: 'text' as const },
-      { name: 'password', label: 'Password', type: 'password' as const },
+      { name: 'phoneNumber', label: 'Phone number', type: 'tel' as const },
+      { name: 'apiId', label: 'API ID', type: 'text' as const },
+      { name: 'apiHash', label: 'API hash', type: 'password' as const },
     ],
   };
 
   it('renders step fields', () => {
     render(<WizardStepForm step={step} onSubmit={vi.fn()} onCancel={vi.fn()} />);
 
-    expect(screen.getByLabelText('Homeserver URL')).toBeInTheDocument();
-    expect(screen.getByLabelText('User ID')).toBeInTheDocument();
-    expect(screen.getByLabelText('Password')).toBeInTheDocument();
+    expect(screen.getByLabelText('Phone number')).toBeInTheDocument();
+    expect(screen.getByLabelText('API ID')).toBeInTheDocument();
+    expect(screen.getByLabelText('API hash')).toBeInTheDocument();
   });
 
   it('submits form data', async () => {
     const onSubmit = vi.fn();
     render(<WizardStepForm step={step} onSubmit={onSubmit} onCancel={vi.fn()} />);
 
-    await userEvent.type(screen.getByLabelText('Homeserver URL'), 'https://matrix.example.com');
-    await userEvent.type(screen.getByLabelText('User ID'), '@user:example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'secret');
+    await userEvent.type(screen.getByLabelText('Phone number'), '+1234567890');
+    await userEvent.type(screen.getByLabelText('API ID'), '12345');
+    await userEvent.type(screen.getByLabelText('API hash'), 'abc');
     await userEvent.click(screen.getByText('Continue'));
 
     expect(onSubmit).toHaveBeenCalledWith({
-      homeserverUrl: 'https://matrix.example.com',
-      userId: '@user:example.com',
-      password: 'secret',
+      phoneNumber: '+1234567890',
+      apiId: '12345',
+      apiHash: 'abc',
     });
   }, 20000);
 
@@ -59,5 +59,25 @@ describe('WizardStepForm', () => {
     );
 
     expect(screen.getByText('Invalid credentials')).toBeInTheDocument();
+  });
+
+  it('renders a QR code image when value is a data URL', () => {
+    const qrStep = {
+      stepId: 'qr-code' as const,
+      title: 'Scan QR code',
+      description: 'Scan this QR code with WhatsApp.',
+      fields: [
+        {
+          name: 'qrCode',
+          label: 'QR code',
+          type: 'qr' as const,
+          value: 'data:image/png;base64,abcd',
+        },
+      ],
+    };
+
+    render(<WizardStepForm step={qrStep} onSubmit={vi.fn()} onCancel={vi.fn()} />);
+
+    expect(screen.getByAltText('QR code')).toBeInTheDocument();
   });
 });

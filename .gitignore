@@ -30,3 +30,7 @@ playwright-report/
 # Secrets
 .env
 .env.local
+
+# Packaging staging
+.vsix-staging/
+**/.vsix-staging/

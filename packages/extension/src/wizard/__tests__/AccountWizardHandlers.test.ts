@@ -34,8 +34,12 @@ describe('registerAccountWizardHandlers', () => {
 
     expect(response.type).toBe('response');
     const result = getResult<{ services: Array<{ service: string }> }>(response);
-    expect(result.services).toHaveLength(1);
-    expect(result.services.map((s) => s.service)).toEqual(['matrix']);
+    expect(result.services.map((s) => s.service)).toEqual([
+      'whatsapp',
+      'telegram',
+      'instagram',
+      'imessage',
+    ]);
   });
 
   it('handles startAccountSetup', async () => {
@@ -49,7 +53,7 @@ describe('registerAccountWizardHandlers', () => {
     expect(response.type).toBe('response');
     const result = getResult<{ setupId: string; step: { stepId: string } }>(response);
     expect(result.setupId).toBeDefined();
-    expect(result.step.stepId).toBe('beeper-token');
+    expect(result.step.stepId).toBe('phone-number');
   });
 
   it('handles submitAccountSetupStep', async () => {
@@ -57,7 +61,7 @@ describe('registerAccountWizardHandlers', () => {
       type: 'request',
       id: 'req-3',
       method: 'startAccountSetup',
-      payload: { service: 'matrix' },
+      payload: { service: 'instagram' },
     });
     const { setupId } = getResult<{ setupId: string }>(start);
 
@@ -67,8 +71,8 @@ describe('registerAccountWizardHandlers', () => {
       method: 'submitAccountSetupStep',
       payload: {
         setupId,
-        stepId: 'beeper-token',
-        data: { accessToken: 'BEEPER_xxx' },
+        stepId: 'credentials',
+        data: { username: 'user', password: 'pass' },
       },
     });
 

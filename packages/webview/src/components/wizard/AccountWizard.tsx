@@ -1,5 +1,5 @@
-import { type JSX, useCallback, useState } from 'react';
-import type { WizardStep } from '../../../../extension/src/shared/messages';
+import { type JSX, useCallback, useEffect, useState } from 'react';
+import type { MssgsEvent, WizardStep } from '../../../../extension/src/shared/messages';
 import type { ServiceType } from '../../../../extension/src/shared/types';
 import type { MessengerClient } from '../../messaging/client';
 import { Button } from '../ui/button';
@@ -19,6 +19,44 @@ export function AccountWizard({ open, onOpenChange, client }: AccountWizardProps
   const [view, setView] = useState<WizardView>({ type: 'select' });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const activeSetupId = view.type === 'step' ? view.setupId : null;
+
+  useEffect(() => {
+    if (!activeSetupId) {
+      return () => {};
+    }
+
+    return client.onEvent((event: MssgsEvent) => {
+      if (event.eventType !== 'wizardAuthPrompt') {
+        return;
+      }
+
+      const { setupId, prompt } = event.payload;
+      if (setupId !== activeSetupId) {
+        return;
+      }
+
+      setView((current) => {
+        if (current.type !== 'step') {
+          return current;
+        }
+
+        const nextStep: WizardStep = {
+          ...current.step,
+          description: prompt.instruction || current.step.description,
+          fields: current.step.fields.map((field) => {
+            if (prompt.type === 'qr' && field.type === 'qr') {
+              return { ...field, value: prompt.data ?? field.value };
+            }
+            return field;
+          }),
+        };
+
+        return { ...current, step: nextStep };
+      });
+    });
+  }, [client, activeSetupId]);
 
   const handleClose = useCallback((): void => {
     if (view.type === 'step') {
@@ -91,7 +129,7 @@ export function AccountWizard({ open, onOpenChange, client }: AccountWizardProps
         <DialogHeader>
           <DialogTitle>Add account</DialogTitle>
           <DialogDescription>
-            Connect a messaging service through its Matrix bridge.
+            Connect a messaging service directly through its native bridge.
           </DialogDescription>
         </DialogHeader>
 

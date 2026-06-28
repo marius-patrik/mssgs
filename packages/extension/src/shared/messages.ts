@@ -35,6 +35,7 @@ export interface WizardServiceInfo {
 export interface MssgsRequestMap {
   ping: { payload?: undefined; response: { ok: true } };
   getAccounts: { payload?: undefined; response: { accounts: unknown[] } };
+  removeAccount: { payload: { accountId: string }; response: { removed: boolean } };
   getConversations: { payload?: undefined; response: { conversations: unknown[] } };
   archiveConversation: { payload: { conversationId: string }; response: { archived: boolean } };
   markAllAsRead: { payload?: undefined; response: { marked: number } };
@@ -147,7 +148,13 @@ export type MssgsResponse =
   | { type: 'response'; id: string; result: unknown }
   | { type: 'response'; id: string; error: string };
 
-export type MssgsEventType = 'accounts' | 'conversations' | 'messages' | 'theme' | 'extras';
+export type MssgsEventType =
+  | 'accounts'
+  | 'conversations'
+  | 'messages'
+  | 'theme'
+  | 'extras'
+  | 'wizardAuthPrompt';
 
 export type MssgsEvent =
   | { type: 'event'; eventType: 'accounts'; payload: unknown[] }
@@ -162,6 +169,11 @@ export type MssgsEvent =
       type: 'event';
       eventType: 'extras';
       payload: { kind: string; data?: unknown };
+    }
+  | {
+      type: 'event';
+      eventType: 'wizardAuthPrompt';
+      payload: { setupId: string; prompt: { type: string; data?: string; instruction: string } };
     };
 
 export type MssgsMessage = MssgsRequest | MssgsResponse | MssgsEvent;

@@ -72,8 +72,18 @@ export function WizardStepForm({
                 ))}
               </select>
             ) : field.type === 'qr' ? (
-              <div className="flex aspect-square w-full max-w-[200px] items-center justify-center rounded-md border bg-muted">
-                <span className="text-center text-xs text-muted-foreground">{field.value}</span>
+              <div className="flex aspect-square w-full max-w-[256px] items-center justify-center rounded-md border bg-muted">
+                {field.value?.startsWith('data:') ? (
+                  <img
+                    src={field.value}
+                    alt="QR code"
+                    className="h-full w-full object-contain p-2"
+                  />
+                ) : (
+                  <span className="text-center text-xs text-muted-foreground">
+                    {field.value ?? 'Waiting for QR code…'}
+                  </span>
+                )}
               </div>
             ) : (
               <Input

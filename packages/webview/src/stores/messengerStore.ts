@@ -32,6 +32,7 @@ export interface MessengerState extends NormalizedState {
 
 export interface MessengerActions {
   setAccounts: (accounts: Account[]) => void;
+  removeAccount: (accountId: string) => void;
   setContacts: (contacts: Contact[]) => void;
   upsertConversation: (conversation: Conversation) => void;
   upsertMessage: (message: Message) => void;
@@ -76,6 +77,33 @@ export const useMessengerStore = create<MessengerStore>()(
         state.accounts = {} as AccountsMap;
         for (const account of accounts) {
           state.accounts[account.id] = account;
+        }
+      }),
+
+    removeAccount: (accountId) =>
+      set((state) => {
+        delete state.accounts[accountId];
+
+        for (const contactId of Object.keys(state.contacts)) {
+          if (state.contacts[contactId]?.accountId === accountId) {
+            delete state.contacts[contactId];
+          }
+        }
+
+        for (const conversationId of Object.keys(state.conversations)) {
+          const conversation = state.conversations[conversationId];
+          if (conversation?.accountId === accountId) {
+            delete state.conversations[conversationId];
+            for (const messageId of Object.keys(state.messages)) {
+              if (state.messages[messageId]?.conversationId === conversationId) {
+                delete state.messages[messageId];
+              }
+            }
+          }
+        }
+
+        if (state.activeConversationId && !state.conversations[state.activeConversationId]) {
+          state.activeConversationId = null;
         }
       }),
 

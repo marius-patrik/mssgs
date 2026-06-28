@@ -2,57 +2,103 @@ import { describe, expect, it } from 'vitest';
 import { AccountWizardEngine } from '../AccountWizardEngine.js';
 
 describe('AccountWizardEngine', () => {
-  it('starts Beeper setup with a token step', () => {
+  it('starts WhatsApp setup with a QR code step', () => {
     const engine = new AccountWizardEngine();
-    const result = engine.start('matrix');
+    const result = engine.start('whatsapp');
 
     expect(result.setupId).toBeDefined();
-    expect(result.step.stepId).toBe('beeper-token');
+    expect(result.step.stepId).toBe('qr-code');
   });
 
-  it('requires an access token', () => {
+  it('starts Telegram setup with a phone number step', () => {
     const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('matrix');
+    const result = engine.start('telegram');
 
-    const result = engine.submit(setupId, 'beeper-token', {
-      accessToken: '',
+    expect(result.step.stepId).toBe('phone-number');
+  });
+
+  it('requires Telegram API credentials', () => {
+    const engine = new AccountWizardEngine();
+    const { setupId } = engine.start('telegram');
+
+    const result = engine.submit(setupId, 'phone-number', {
+      phoneNumber: '',
+      apiId: '',
+      apiHash: '',
     });
 
     expect(result.done).toBe(false);
-    expect(result.error).toContain('Access token');
+    expect(result.error).toContain('Phone number');
   });
 
-  it('completes after a valid token', () => {
+  it('moves Telegram from phone number to verification code', () => {
     const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('matrix');
+    const { setupId } = engine.start('telegram');
 
-    const result = engine.submit(setupId, 'beeper-token', {
-      accessToken: 'BEEPER_xxx',
+    const result = engine.submit(setupId, 'phone-number', {
+      phoneNumber: '+1234567890',
+      apiId: '12345',
+      apiHash: 'abc',
+    });
+
+    expect(result.done).toBe(false);
+    expect(result.step?.stepId).toBe('verify-code');
+  });
+
+  it('requires Instagram credentials', () => {
+    const engine = new AccountWizardEngine();
+    const { setupId } = engine.start('instagram');
+
+    const result = engine.submit(setupId, 'credentials', {
+      username: '',
+      password: '',
+    });
+
+    expect(result.done).toBe(false);
+    expect(result.error).toContain('Username');
+  });
+
+  it('completes Instagram setup with valid credentials', () => {
+    const engine = new AccountWizardEngine();
+    const { setupId } = engine.start('instagram');
+
+    const result = engine.submit(setupId, 'credentials', {
+      username: 'user',
+      password: 'pass',
     });
 
     expect(result.done).toBe(true);
     expect(engine.status(setupId)?.status).toBe('completed');
   });
 
+  it('completes iMessage setup from pairing step', () => {
+    const engine = new AccountWizardEngine();
+    const { setupId } = engine.start('imessage');
+
+    const result = engine.submit(setupId, 'pairing', {});
+
+    expect(result.done).toBe(true);
+  });
+
   it('rejects submissions for non-existent sessions', () => {
     const engine = new AccountWizardEngine();
-    const result = engine.submit('unknown-id', 'beeper-token', {});
+    const result = engine.submit('unknown-id', 'phone-number', {});
 
     expect(result.error).toBe('Setup session not found');
   });
 
   it('rejects submissions for wrong step', () => {
     const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('matrix');
+    const { setupId } = engine.start('telegram');
 
     const result = engine.submit(setupId, 'complete', {});
 
-    expect(result.error).toContain('Expected step beeper-token');
+    expect(result.error).toContain('Expected step phone-number');
   });
 
   it('cancels an active session', () => {
     const engine = new AccountWizardEngine();
-    const { setupId } = engine.start('matrix');
+    const { setupId } = engine.start('whatsapp');
 
     expect(engine.cancel(setupId)).toEqual({ cancelled: true });
     expect(engine.status(setupId)?.status).toBe('cancelled');

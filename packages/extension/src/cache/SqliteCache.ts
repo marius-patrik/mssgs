@@ -383,6 +383,15 @@ export class SqliteCache {
     `);
   }
 
+  deleteAccount(accountId: string): void {
+    this.runInTransaction(() => {
+      this.db.prepare('DELETE FROM messages WHERE account_id = ?').run(accountId);
+      this.db.prepare('DELETE FROM conversations WHERE account_id = ?').run(accountId);
+      this.db.prepare('DELETE FROM contacts WHERE account_id = ?').run(accountId);
+      this.db.prepare('DELETE FROM accounts WHERE id = ?').run(accountId);
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Mappers
   // ---------------------------------------------------------------------------

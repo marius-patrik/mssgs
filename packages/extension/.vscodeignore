@@ -4,6 +4,8 @@ src/**
 out/test/**
 out/__mocks__/**
 out/__tests__/**
+out/**/__tests__/**
+out/**/__mocks__/**
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
@@ -13,3 +15,5 @@ vsc-extension-quickstart.md
 **/*.ts
 .vscode-test.mjs
 tsconfig.test.json
+.vsix-staging/**
+node_modules/**

@@ -2,6 +2,7 @@ import { type JSX, useMemo, useState } from 'react';
 import { useConversations } from '../../hooks/useConversations';
 import type { MessengerClient } from '../../messaging/client';
 import { useMessengerStore } from '../../stores/messengerStore';
+import { AccountList } from './AccountList';
 import { ConversationList } from './ConversationList';
 import { InboxHeader } from './InboxHeader';
 
@@ -38,6 +39,7 @@ export function Inbox({ onNewConversation, client }: InboxProps): JSX.Element {
   return (
     <aside className="flex w-72 shrink-0 flex-col border-r bg-card">
       <InboxHeader query={query} onQueryChange={setQuery} onNewConversation={onNewConversation} />
+      <AccountList client={client} />
       <ConversationList
         client={client}
         conversations={filtered}
