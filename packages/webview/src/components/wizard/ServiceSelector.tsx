@@ -9,13 +9,27 @@ interface ServiceOption {
   displayName: string;
   icon: JSX.ElementType;
   color: string;
+  warning?: string;
 }
 
 const SERVICES: ServiceOption[] = [
   { service: 'whatsapp', displayName: 'WhatsApp', icon: MessageCircle, color: 'bg-green-500' },
   { service: 'telegram', displayName: 'Telegram', icon: Send, color: 'bg-sky-500' },
-  { service: 'instagram', displayName: 'Instagram', icon: Smartphone, color: 'bg-pink-600' },
-  { service: 'imessage', displayName: 'iMessage', icon: MessageSquare, color: 'bg-green-600' },
+  {
+    service: 'instagram',
+    displayName: 'Instagram',
+    icon: Smartphone,
+    color: 'bg-pink-600',
+    warning:
+      'Unofficial integration. Not endorsed by Meta and may break without notice.',
+  },
+  {
+    service: 'imessage',
+    displayName: 'iMessage',
+    icon: MessageSquare,
+    color: 'bg-green-600',
+    warning: 'macOS only. Requires Full Disk Access for VS Code.',
+  },
 ];
 
 export interface ServiceSelectorProps {
@@ -43,6 +57,11 @@ export function ServiceSelector({ onSelect }: ServiceSelectorProps): JSX.Element
               <Icon className="h-5 w-5" />
             </span>
             <span className="text-sm font-medium">{option.displayName}</span>
+            {option.warning ? (
+              <span className="text-xs text-muted-foreground text-center leading-tight">
+                {option.warning}
+              </span>
+            ) : null}
           </Button>
         );
       })}

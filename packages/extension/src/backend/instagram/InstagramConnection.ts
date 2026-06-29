@@ -62,9 +62,13 @@ export class InstagramConnection
       await this.syncInbox();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger?.error(`[mssgs:instagram] connect error: ${message}`);
-      this.setStatus('error', message);
-      throw error;
+      const isChallenge = message.toLowerCase().includes('challenge') || message.toLowerCase().includes('checkpoint');
+      const display = isChallenge
+        ? `${message}. Complete the Instagram challenge in a browser, then try again.`
+        : message;
+      this.logger?.error(`[mssgs:instagram] connect error: ${display}`);
+      this.setStatus('error', display);
+      this.emit('error', { accountId: this.accountId, error: display });
     }
   }
 
