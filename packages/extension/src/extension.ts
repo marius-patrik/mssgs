@@ -50,12 +50,15 @@ const WIZARD_SERVICES = [
     displayName: 'Instagram',
     requiresPhone: false,
     requiresMatrixLogin: false,
+    warning:
+      'This is an unofficial Instagram integration. It may break without notice and is not endorsed by Meta. Use at your own risk.',
   },
   {
     service: 'imessage' as ServiceType,
     displayName: 'iMessage',
     requiresPhone: false,
     requiresMatrixLogin: false,
+    warning: 'iMessage is only available on macOS and requires Full Disk Access for VS Code.',
   },
 ];
 
