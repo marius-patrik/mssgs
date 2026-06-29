@@ -99,6 +99,7 @@ export class BaileysConnection
       this.socket.ev.on('creds.update', saveCreds);
       this.socket.ev.on('connection.update', (update) => this.handleConnectionUpdate(update));
       this.socket.ev.on('chats.upsert', (chats) => this.handleChats(chats));
+      this.socket.ev.on('messaging-history.set', (data) => this.handleChats(data.chats));
       this.socket.ev.on('chats.update', () => this.emitRooms());
       this.socket.ev.on('messages.upsert', (data) => this.handleMessages(data.messages));
     } catch (error) {
