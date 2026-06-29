@@ -1,5 +1,8 @@
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { TelegramClient } from 'telegram';
+import { StringSession } from 'telegram/sessions/index.js';
+import type { EncryptionService } from '../../services/EncryptionService.js';
 import type { Logger } from '../../shared/logger.js';
 import type {
   BridgeAuthPrompt,
@@ -24,15 +27,18 @@ export class TelegramConnection
   private apiHash = '';
   private codeResolver: ((code: string) => void) | null = null;
   private readonly logger: Logger | undefined;
+  private readonly encryption: EncryptionService | undefined;
   private rooms = new Map<string, BridgeRoomInfo>();
 
   constructor(
     public readonly accountId: string,
     private readonly storageDir: string,
     logger?: Logger,
+    encryption?: EncryptionService,
   ) {
     super();
     this.logger = logger;
+    this.encryption = encryption;
   }
 
   get status(): BridgeStatus {
@@ -55,8 +61,19 @@ export class TelegramConnection
     this.setStatus('connecting');
 
     try {
-      const sessionPath = path.join(this.storageDir, `telegram-${this.accountId}`);
-      this.client = new TelegramClient(sessionPath, this.apiId, this.apiHash, {
+      const sessionPath = path.join(this.storageDir, `telegram-${this.accountId}.enc`);
+      let sessionString = '';
+      if (this.encryption && fs.existsSync(sessionPath)) {
+        try {
+          sessionString = await this.encryption.decryptFromFile(sessionPath);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger?.error(`[mssgs:telegram] failed to decrypt session: ${message}`);
+        }
+      }
+
+      const session = new StringSession(sessionString);
+      this.client = new TelegramClient(session, this.apiId, this.apiHash, {
         connectionRetries: 5,
       });
 
@@ -80,6 +97,16 @@ export class TelegramConnection
 
   async disconnect(): Promise<void> {
     if (this.client) {
+      if (this.encryption) {
+        const sessionString = (this.client.session as unknown as StringSession).save();
+        const sessionPath = path.join(this.storageDir, `telegram-${this.accountId}.enc`);
+        try {
+          await this.encryption.encryptToFile(sessionString, sessionPath);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          this.logger?.error(`[mssgs:telegram] failed to encrypt session: ${message}`);
+        }
+      }
       await this.client.disconnect();
       this.client = null;
     }

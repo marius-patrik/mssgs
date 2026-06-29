@@ -14,13 +14,14 @@ function createMockContext(): vscode.ExtensionContext {
   return {
     extensionUri: vscode.Uri.file('/workspace/packages/extension'),
     subscriptions: [],
+    secrets: (vscode as unknown as { secrets: vscode.ExtensionContext['secrets'] }).secrets,
   } as unknown as vscode.ExtensionContext;
 }
 
 describe('activate', () => {
-  it('registers all required commands', () => {
+  it('registers all required commands', async () => {
     const context = createMockContext();
-    activate(context);
+    await activate(context);
 
     const registered = (vscode.commands.registerCommand as ReturnType<typeof vi.fn>).mock.calls.map(
       (call: unknown[]) => call[0] as string,
@@ -33,9 +34,9 @@ describe('activate', () => {
     expect(registered).toContain('mssgs.searchMessages');
   });
 
-  it('registers the webview view provider', () => {
+  it('registers the webview view provider', async () => {
     const context = createMockContext();
-    activate(context);
+    await activate(context);
 
     expect(vscode.window.registerWebviewViewProvider).toHaveBeenCalledWith(
       'mssgs.messenger',
@@ -44,9 +45,9 @@ describe('activate', () => {
     );
   });
 
-  it('opens the messenger in an editor tab via command', () => {
+  it('opens the messenger in an editor tab via command', async () => {
     const context = createMockContext();
-    activate(context);
+    await activate(context);
 
     const calls = (vscode.commands.registerCommand as ReturnType<typeof vi.fn>).mock.calls as [
       string,
