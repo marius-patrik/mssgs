@@ -20,8 +20,7 @@ const SERVICES: ServiceOption[] = [
     displayName: 'Instagram',
     icon: Smartphone,
     color: 'bg-pink-600',
-    warning:
-      'Unofficial integration. Not endorsed by Meta and may break without notice.',
+    warning: 'Unofficial integration. Not endorsed by Meta and may break without notice.',
   },
   {
     service: 'imessage',

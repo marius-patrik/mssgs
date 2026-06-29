@@ -1,11 +1,11 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
   type AuthenticationState,
   type SignalDataTypeMap,
   type SignalKeyStore,
   initAuthCreds,
 } from '@whiskeysockets/baileys';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import type { EncryptionService } from '../../services/EncryptionService.js';
 
 interface StoredAuthState {
@@ -63,16 +63,16 @@ export async function useEncryptedAuthState(
       return result;
     },
     set: async (data) => {
+      const keyStore = state.keys as unknown as Record<string, Record<string, unknown>>;
       for (const [type, values] of Object.entries(data) as [
         keyof SignalDataTypeMap,
         Record<string, SignalDataTypeMap[keyof SignalDataTypeMap]>,
       ][]) {
-        const store =
-          (((state.keys as unknown as Record<string, Record<string, unknown>>)[type] as
-            | Record<string, unknown>
-            | undefined) ??= {});
+        if (!keyStore[type]) {
+          keyStore[type] = {};
+        }
         for (const [id, value] of Object.entries(values)) {
-          store[id] = value;
+          keyStore[type][id] = value;
         }
       }
       await persist();

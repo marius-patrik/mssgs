@@ -1,6 +1,6 @@
-import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 import * as fs from 'node:fs';
-import * as vscode from 'vscode';
+import type * as vscode from 'vscode';
 
 const KEY_LENGTH = 32;
 const IV_LENGTH = 16;

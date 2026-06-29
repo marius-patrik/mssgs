@@ -14,8 +14,8 @@ import {
 } from './backend/index.js';
 import { SqliteCache } from './cache/index.js';
 import { registerCommands } from './commands/index.js';
-import { EncryptionService } from './services/EncryptionService.js';
 import { registerExtras } from './extras/index.js';
+import { EncryptionService } from './services/EncryptionService.js';
 import type { Logger } from './shared/logger.js';
 import { MessageBus } from './shared/messages.js';
 import type { Account, Contact, Conversation, Message, ServiceType } from './shared/types.js';

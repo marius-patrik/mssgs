@@ -62,7 +62,8 @@ export class InstagramConnection
       await this.syncInbox();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      const isChallenge = message.toLowerCase().includes('challenge') || message.toLowerCase().includes('checkpoint');
+      const isChallenge =
+        message.toLowerCase().includes('challenge') || message.toLowerCase().includes('checkpoint');
       const display = isChallenge
         ? `${message}. Complete the Instagram challenge in a browser, then try again.`
         : message;

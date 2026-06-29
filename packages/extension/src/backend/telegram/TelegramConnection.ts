@@ -194,7 +194,8 @@ export class TelegramConnection
   private waitForPassword(): Promise<string> {
     const prompt: BridgeAuthPrompt = {
       type: 'credentials',
-      instruction: 'Your Telegram account has two-factor authentication enabled. Enter your password.',
+      instruction:
+        'Your Telegram account has two-factor authentication enabled. Enter your password.',
     };
     this.emit('authPrompt', { accountId: this.accountId, prompt });
 
@@ -203,7 +204,15 @@ export class TelegramConnection
     });
   }
 
-  private async handleNewMessage(event: { message?: { id: number; message?: string; date?: number; senderId?: { toString(): string }; out?: boolean } }): Promise<void> {
+  private async handleNewMessage(event: {
+    message?: {
+      id: number;
+      message?: string;
+      date?: number;
+      senderId?: { toString(): string };
+      out?: boolean;
+    };
+  }): Promise<void> {
     const msg = event.message;
     if (!msg || !this.client) {
       return;

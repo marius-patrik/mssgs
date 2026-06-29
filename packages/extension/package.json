@@ -19,14 +19,7 @@
   "homepage": "https://github.com/marius-patrik/mssgs#readme",
   "license": "MIT",
   "pricing": "Free",
-  "keywords": [
-    "messaging",
-    "matrix",
-    "chat",
-    "beeper",
-    "unified",
-    "messenger"
-  ],
+  "keywords": ["messaging", "matrix", "chat", "beeper", "unified", "messenger"],
   "screenshots": [
     {
       "path": "media/screenshot-inbox.png",
@@ -52,13 +45,8 @@
     "package": "node scripts/stage-native-deps.mjs && vsce package --no-dependencies",
     "publish": "vsce publish --no-dependencies"
   },
-  "categories": [
-    "Messaging",
-    "Other"
-  ],
-  "activationEvents": [
-    "onStartupFinished"
-  ],
+  "categories": ["Messaging", "Other"],
+  "activationEvents": ["onStartupFinished"],
   "contributes": {
     "commands": [
       {
