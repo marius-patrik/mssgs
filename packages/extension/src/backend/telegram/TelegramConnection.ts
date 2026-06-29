@@ -1,6 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { Api, TelegramClient } from 'telegram';
+import { NewMessage } from 'telegram/events/index.js';
 import { StringSession } from 'telegram/sessions/index.js';
 import type { EncryptionService } from '../../services/EncryptionService.js';
 import type { Logger } from '../../shared/logger.js';
@@ -26,6 +27,7 @@ export class TelegramConnection
   private apiId = 0;
   private apiHash = '';
   private codeResolver: ((code: string) => void) | null = null;
+  private passwordResolver: ((password: string) => void) | null = null;
   private readonly logger: Logger | undefined;
   private readonly encryption: EncryptionService | undefined;
   private rooms = new Map<string, BridgeRoomInfo>();
@@ -80,12 +82,14 @@ export class TelegramConnection
       await this.client.start({
         phoneNumber: async () => this.phoneNumber,
         phoneCode: async () => this.waitForCode(),
+        password: async () => this.waitForPassword(),
         onError: (error: Error) => {
           this.emit('error', { accountId: this.accountId, error: error.message });
         },
       });
 
       this.setStatus('connected');
+      this.client.addEventHandler((event) => this.handleNewMessage(event), new NewMessage({}));
       await this.syncDialogs();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -164,6 +168,10 @@ export class TelegramConnection
       this.codeResolver(credentials.code);
       this.codeResolver = null;
     }
+    if (credentials.password && this.passwordResolver) {
+      this.passwordResolver(credentials.password);
+      this.passwordResolver = null;
+    }
   }
 
   private setStatus(status: BridgeStatus, error?: string): void {
@@ -180,6 +188,53 @@ export class TelegramConnection
 
     return new Promise((resolve) => {
       this.codeResolver = resolve;
+    });
+  }
+
+  private waitForPassword(): Promise<string> {
+    const prompt: BridgeAuthPrompt = {
+      type: 'credentials',
+      instruction: 'Your Telegram account has two-factor authentication enabled. Enter your password.',
+    };
+    this.emit('authPrompt', { accountId: this.accountId, prompt });
+
+    return new Promise((resolve) => {
+      this.passwordResolver = resolve;
+    });
+  }
+
+  private async handleNewMessage(event: { message?: { id: number; message?: string; date?: number; senderId?: { toString(): string }; out?: boolean } }): Promise<void> {
+    const msg = event.message;
+    if (!msg || !this.client) {
+      return;
+    }
+
+    const roomId = String(msg.senderId?.toString() ?? 'unknown');
+    const text = msg.message ?? '';
+    if (!text) {
+      return;
+    }
+
+    const sender = await this.client.getEntity(String(msg.senderId ?? '')).catch(() => undefined);
+    const senderName =
+      sender && 'firstName' in sender
+        ? [sender.firstName, sender.lastName].filter(Boolean).join(' ')
+        : String(msg.senderId ?? 'unknown');
+
+    this.emit('messagesChanged', {
+      accountId: this.accountId,
+      roomId,
+      messages: [
+        {
+          id: String(msg.id),
+          roomId,
+          senderId: String(msg.senderId ?? 'unknown'),
+          senderName,
+          text,
+          timestamp: msg.date ? Number(msg.date) * 1000 : Date.now(),
+          isFromMe: msg.out ?? false,
+        },
+      ],
     });
   }
 
