@@ -19,7 +19,14 @@
   "homepage": "https://github.com/marius-patrik/mssgs#readme",
   "license": "MIT",
   "pricing": "Free",
-  "keywords": ["messaging", "matrix", "chat", "beeper", "unified", "messenger"],
+  "keywords": [
+    "messaging",
+    "matrix",
+    "chat",
+    "beeper",
+    "unified",
+    "messenger"
+  ],
   "screenshots": [
     {
       "path": "media/screenshot-inbox.png",
@@ -45,8 +52,13 @@
     "package": "node scripts/stage-native-deps.mjs && vsce package --no-dependencies",
     "publish": "vsce publish --no-dependencies"
   },
-  "categories": ["Messaging", "Other"],
-  "activationEvents": ["onStartupFinished"],
+  "categories": [
+    "Messaging",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "commands": [
       {
@@ -185,7 +197,7 @@
     "better-sqlite3": "^11.10.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.0.0",
     "@types/qrcode": "^1.5.6",

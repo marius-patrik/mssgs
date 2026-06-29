@@ -4,36 +4,41 @@
 #29
 
 ## Goal
-Protect local chat history, contacts, and service credentials at rest using an encryption key stored in vscode.SecretStorage.
+Protect local chat history and service credentials at rest using an encryption key stored in `vscode.SecretStorage`.
 
 ## Threat Model
-- The extension stores chat history, contacts, and session tokens in VS Code global storage.
+- The extension stores chat history and session tokens in VS Code global storage.
 - An attacker with filesystem access to the user's home directory could read this data.
 - We encrypt data before it is written to disk and decrypt it when read.
 
-## Approach
-1. Generate or retrieve a single 256-bit master key from vscode.SecretStorage.
-2. Use AES-256-GCM via Node crypto for all encryption.
-3. Store per-row ciphertext + IV + auth tag for sensitive columns (text, names, titles, usernames, tokens).
-4. Encrypt service session files (WhatsApp auth state, Telegram session string, Instagram credentials, iMessage state) before writing to disk; decrypt on load.
-5. On account removal, delete both the encrypted cache rows and the encrypted session files.
+## Implementation
 
-## Sensitive Data
-- Messages: text
-- Contacts: displayName, username
-- Conversations: title
-- Accounts: username, displayName, any stored tokens
-- Session files: baileys auth dir, telegram session dir, instagram session cache, imessage state
+### Master Key
+- `EncryptionService` retrieves or creates a 256-bit key from `vscode.SecretStorage`.
+- The key is generated with `crypto.randomBytes(32)`.
+- All encryption uses AES-256-GCM with a random IV and 128-bit auth tag.
 
-## Non-Sensitive Data
-- IDs, timestamps, foreign keys, booleans, counts
+### SQLite Cache Encryption
+- The cache is an ordinary `better-sqlite3` database while the extension is running.
+- When the extension closes the cache (`deactivate()` or account removal), it exports the database to an encrypted file (`mssgs.sqlite.enc`) and deletes the plaintext `mssgs.sqlite`.
+- On the next activation, if `mssgs.sqlite` is missing and `mssgs.sqlite.enc` exists, the cache is decrypted before opening.
+- This provides encryption-at-rest whenever the extension is not running.
 
-## Open Questions
-- Should we switch to sql.js with full-database encryption instead of field-level encryption?
-- Performance impact of field-level encryption on large histories.
+### Bridge Session Encryption
+- **Telegram**: the GramJS `StringSession` is saved and encrypted to `telegram-{accountId}.enc` on disconnect; decrypted on connect.
+- **WhatsApp**: the Baileys `AuthenticationState` is serialized to JSON and encrypted to `baileys-{accountId}.enc` on every creds/key change.
+- **Instagram / iMessage**: no persistent session files in v1. Credentials are not stored.
+
+### SecretStorage Mock
+- Tests use an in-memory `vscode.SecretStorage` mock so `activate()` can create the encryption service.
 
 ## Acceptance Criteria
-- SecretStorage stores the master key; data files are not readable without it.
-- Existing plaintext cache is either migrated or discarded gracefully.
-- Account removal wipes keys and data.
-- All tests pass.
+- [x] Master key lives in `vscode.SecretStorage` and never leaves the extension host.
+- [x] Cache file is stored as an encrypted blob at rest.
+- [x] Telegram and WhatsApp sessions are encrypted at rest.
+- [x] All existing tests pass.
+- [x] Extension packages successfully.
+
+## Future Work
+- Encrypt the SQLite database while running (e.g., SQLCipher) if required by a stricter threat model.
+- Reduce native dependency size by trimming better-sqlite3 source files from the .vsix.

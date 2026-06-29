@@ -68,6 +68,12 @@ export const commands = {
   })),
 };
 
+export const secrets = {
+  get: vi.fn(),
+  store: vi.fn(),
+  delete: vi.fn(),
+};
+
 export const window = {
   activeColorTheme: { kind: ColorThemeKind.Dark },
   createWebviewPanel: vi.fn(

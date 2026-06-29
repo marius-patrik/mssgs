@@ -7,9 +7,9 @@ import {
   type WAMessage,
   type WASocket,
   makeWASocket,
-  useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
+import type { EncryptionService } from '../../services/EncryptionService.js';
 import type { Logger } from '../../shared/logger.js';
 import type {
   BridgeAuthPrompt,
@@ -20,6 +20,7 @@ import type {
   BridgeStatus,
 } from '../BridgeConnection.js';
 import { TypedEmitter } from '../TypedEmitter.js';
+import { useEncryptedAuthState } from './EncryptedAuthState.js';
 
 function getContent(message: WAMessage): string | undefined {
   const content = message.message;
@@ -54,8 +55,9 @@ export class BaileysConnection
   readonly service = 'whatsapp';
   private _status: BridgeStatus = 'disconnected';
   private socket: WASocket | null = null;
-  private readonly authDir: string;
+  private readonly authPath: string;
   private readonly logger: Logger | undefined;
+  private readonly encryption: EncryptionService | undefined;
   private rooms = new Map<string, BridgeRoomInfo>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private historyCheckTimer: ReturnType<typeof setTimeout> | null = null;
@@ -64,11 +66,12 @@ export class BaileysConnection
     public readonly accountId: string,
     storageDir: string,
     logger?: Logger,
+    encryption?: EncryptionService,
   ) {
     super();
     this.logger = logger;
-    this.authDir = path.join(storageDir, `baileys-${accountId}`);
-    fs.mkdirSync(this.authDir, { recursive: true });
+    this.encryption = encryption;
+    this.authPath = path.join(storageDir, `baileys-${accountId}.enc`);
   }
 
   get status(): BridgeStatus {
@@ -83,7 +86,10 @@ export class BaileysConnection
     this.setStatus('connecting');
 
     try {
-      const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
+      if (!this.encryption) {
+        throw new Error('WhatsApp bridge requires an EncryptionService');
+      }
+      const { state, saveCreds } = await useEncryptedAuthState(this.authPath, this.encryption);
       this.socket = makeWASocket({
         auth: state,
         printQRInTerminal: false,
@@ -168,8 +174,7 @@ export class BaileysConnection
     }
 
     try {
-      fs.rmSync(this.authDir, { recursive: true, force: true });
-      fs.mkdirSync(this.authDir, { recursive: true });
+      fs.rmSync(this.authPath, { recursive: true, force: true });
       this.rooms.clear();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

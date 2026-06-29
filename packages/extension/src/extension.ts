@@ -13,6 +13,7 @@ import {
 } from './backend/index.js';
 import { SqliteCache } from './cache/index.js';
 import { registerCommands } from './commands/index.js';
+import { EncryptionService } from './services/EncryptionService.js';
 import { registerExtras } from './extras/index.js';
 import type { Logger } from './shared/logger.js';
 import { MessageBus } from './shared/messages.js';
@@ -138,14 +139,46 @@ function bridgeMessageToMessage(
   };
 }
 
-function createCache(context: vscode.ExtensionContext, logger: Logger): SqliteCache | undefined {
+async function createCache(
+  context: vscode.ExtensionContext,
+  logger: Logger,
+  encryption: EncryptionService,
+): Promise<SqliteCache | undefined> {
   if (!context.globalStorageUri) {
     return undefined;
   }
 
   fs.mkdirSync(context.globalStorageUri.fsPath, { recursive: true });
   const dbPath = vscode.Uri.joinPath(context.globalStorageUri, 'mssgs.sqlite').fsPath;
-  return new SqliteCache(dbPath, { logger });
+  const encryptedPath = `${dbPath}.enc`;
+
+  if (fs.existsSync(encryptedPath) && !fs.existsSync(dbPath)) {
+    try {
+      await encryption.decryptFile(encryptedPath, dbPath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      logger.error(`Failed to decrypt cache: ${message}`);
+      return undefined;
+    }
+  }
+
+  const cache = new SqliteCache(dbPath, { logger });
+
+  const originalClose = cache.close.bind(cache);
+  cache.close = async () => {
+    originalClose();
+    if (dbPath !== ':memory:') {
+      try {
+        await encryption.encryptFile(dbPath, encryptedPath);
+        fs.rmSync(dbPath, { force: true });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        logger.error(`Failed to encrypt cache: ${message}`);
+      }
+    }
+  };
+
+  return cache;
 }
 
 function createBridgeConnection(
@@ -153,12 +186,13 @@ function createBridgeConnection(
   accountId: string,
   storageDir: string,
   logger: Logger,
+  encryption: EncryptionService,
 ): BridgeConnection {
   switch (service) {
     case 'whatsapp':
-      return new BaileysConnection(accountId, storageDir, logger);
+      return new BaileysConnection(accountId, storageDir, logger, encryption);
     case 'telegram':
-      return new TelegramConnection(accountId, storageDir, logger);
+      return new TelegramConnection(accountId, storageDir, logger, encryption);
     case 'instagram':
       return new InstagramConnection(accountId, logger);
     case 'imessage':
@@ -168,7 +202,7 @@ function createBridgeConnection(
   }
 }
 
-export function activate(context: vscode.ExtensionContext): void {
+export async function activate(context: vscode.ExtensionContext): Promise<void> {
   const outputChannel = vscode.window.createOutputChannel('mssgs');
   const logger: Logger = {
     log: (message: string) => outputChannel.appendLine(message),
@@ -177,7 +211,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const manager = new WebviewManager(context.extensionUri);
   const bus = new MessageBus();
-  const cache = createCache(context, logger);
+  const encryption = new EncryptionService(context.secrets);
+  const cache = await createCache(context, logger, encryption);
   const connections = new Map<string, BridgeConnection>();
   const pendingConnections = new Map<string, BridgeConnection>();
   const wizardEngine = new AccountWizardEngine();
@@ -438,6 +473,7 @@ export function activate(context: vscode.ExtensionContext): void {
       result.setupId,
       globalStorageDir,
       logger,
+      encryption,
     );
     wireBridgeEvents(connection);
     pendingConnections.set(result.setupId, connection);
@@ -554,24 +590,21 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 }
 
-export function deactivate(): void {
+export async function deactivate(): Promise<void> {
   if (!extensionState) {
     return;
   }
 
   const { cache, connections, pendingConnections, outputChannel } = extensionState;
 
-  for (const connection of connections.values()) {
-    void connection.disconnect();
-  }
-
-  for (const connection of pendingConnections.values()) {
-    void connection.disconnect();
-  }
+  await Promise.all([
+    ...Array.from(connections.values()).map((c) => c.disconnect()),
+    ...Array.from(pendingConnections.values()).map((c) => c.disconnect()),
+  ]);
 
   connections.clear();
   pendingConnections.clear();
-  cache?.close();
+  await cache?.close();
   outputChannel.dispose();
   extensionState = undefined;
 }
