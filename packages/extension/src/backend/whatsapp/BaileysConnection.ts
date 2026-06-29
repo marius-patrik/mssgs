@@ -10,6 +10,7 @@ import {
   useMultiFileAuthState,
 } from '@whiskeysockets/baileys';
 import QRCode from 'qrcode';
+import type { Logger } from '../../shared/logger.js';
 import type {
   BridgeAuthPrompt,
   BridgeConnection,
@@ -54,13 +55,18 @@ export class BaileysConnection
   private _status: BridgeStatus = 'disconnected';
   private socket: WASocket | null = null;
   private readonly authDir: string;
+  private readonly logger: Logger | undefined;
   private rooms = new Map<string, BridgeRoomInfo>();
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private historyCheckTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     public readonly accountId: string,
     storageDir: string,
+    logger?: Logger,
   ) {
     super();
+    this.logger = logger;
     this.authDir = path.join(storageDir, `baileys-${accountId}`);
     fs.mkdirSync(this.authDir, { recursive: true });
   }
@@ -91,13 +97,21 @@ export class BaileysConnection
       this.socket.ev.on('messages.upsert', (data) => this.handleMessages(data.messages));
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[mssgs:whatsapp] connect error:', message);
+      this.logger?.error(`[mssgs:whatsapp] connect error: ${message}`);
       this.setStatus('error', message);
       throw error;
     }
   }
 
   async disconnect(): Promise<void> {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.historyCheckTimer) {
+      clearTimeout(this.historyCheckTimer);
+      this.historyCheckTimer = null;
+    }
     if (this.socket) {
       this.socket.end(undefined);
       this.socket = null;
@@ -138,9 +152,9 @@ export class BaileysConnection
     // If WhatsApp does not send any chats shortly after connecting, the session's
     // history sync state is probably stale. Force a re-pair so the user can scan
     // the QR code again and receive a fresh history sync.
-    setTimeout(() => {
+    this.historyCheckTimer = setTimeout(() => {
       if (this.status === 'connected' && this.rooms.size === 0) {
-        console.log('[mssgs:whatsapp] no rooms received, forcing re-pair');
+        this.logger?.log('[mssgs:whatsapp] no rooms received, forcing re-pair');
         void this.repair();
       }
     }, 45_000);
@@ -159,7 +173,7 @@ export class BaileysConnection
       this.rooms.clear();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[mssgs:whatsapp] repair cleanup error:', message);
+      this.logger?.error(`[mssgs:whatsapp] repair cleanup error: ${message}`);
     }
 
     this.setStatus('connecting');
@@ -183,7 +197,7 @@ export class BaileysConnection
     }
 
     if (update.connection === 'open') {
-      console.log('[mssgs:whatsapp] connected, rooms:', this.rooms.size);
+      this.logger?.log(`[mssgs:whatsapp] connected, rooms: ${this.rooms.size}`);
       this.setStatus('connected');
       this.emitRooms();
       this.scheduleHistoryCheck();
@@ -197,7 +211,7 @@ export class BaileysConnection
       this.setStatus('disconnected');
 
       if (shouldReconnect) {
-        setTimeout(() => {
+        this.reconnectTimer = setTimeout(() => {
           void this.connect();
         }, 3_000);
       }

@@ -102,6 +102,14 @@ export const window = {
   showInputBox: vi.fn(),
   showQuickPick: vi.fn(),
   onDidChangeActiveColorTheme: vi.fn(() => ({ dispose: vi.fn() })),
+  createOutputChannel: vi.fn(() => ({
+    appendLine: vi.fn(),
+    append: vi.fn(),
+    clear: vi.fn(),
+    show: vi.fn(),
+    hide: vi.fn(),
+    dispose: vi.fn(),
+  })),
 };
 
 export enum ViewColumn {

@@ -14,11 +14,21 @@ import {
 import { SqliteCache } from './cache/index.js';
 import { registerCommands } from './commands/index.js';
 import { registerExtras } from './extras/index.js';
+import type { Logger } from './shared/logger.js';
 import { MessageBus } from './shared/messages.js';
 import type { Account, Contact, Conversation, Message, ServiceType } from './shared/types.js';
 import { MessengerViewProvider } from './webview/MessengerViewProvider.js';
 import { WebviewManager } from './webview/WebviewManager.js';
 import { AccountWizardEngine, type WizardSession, type WizardStepId } from './wizard/index.js';
+
+interface ExtensionState {
+  cache: SqliteCache | undefined;
+  connections: Map<string, BridgeConnection>;
+  pendingConnections: Map<string, BridgeConnection>;
+  outputChannel: vscode.OutputChannel;
+}
+
+let extensionState: ExtensionState | undefined;
 
 const WIZARD_SERVICES = [
   {
@@ -128,42 +138,50 @@ function bridgeMessageToMessage(
   };
 }
 
-function createCache(context: vscode.ExtensionContext): SqliteCache | undefined {
+function createCache(context: vscode.ExtensionContext, logger: Logger): SqliteCache | undefined {
   if (!context.globalStorageUri) {
     return undefined;
   }
 
   fs.mkdirSync(context.globalStorageUri.fsPath, { recursive: true });
   const dbPath = vscode.Uri.joinPath(context.globalStorageUri, 'mssgs.sqlite').fsPath;
-  return new SqliteCache(dbPath);
+  return new SqliteCache(dbPath, { logger });
 }
 
 function createBridgeConnection(
   service: ServiceType,
   accountId: string,
   storageDir: string,
+  logger: Logger,
 ): BridgeConnection {
   switch (service) {
     case 'whatsapp':
-      return new BaileysConnection(accountId, storageDir);
+      return new BaileysConnection(accountId, storageDir, logger);
     case 'telegram':
-      return new TelegramConnection(accountId, storageDir);
+      return new TelegramConnection(accountId, storageDir, logger);
     case 'instagram':
-      return new InstagramConnection(accountId);
+      return new InstagramConnection(accountId, logger);
     case 'imessage':
-      return new IMessageConnection(accountId);
+      return new IMessageConnection(accountId, logger);
     default:
       throw new Error(`Service ${service} is not supported by a direct bridge yet`);
   }
 }
 
 export function activate(context: vscode.ExtensionContext): void {
+  const outputChannel = vscode.window.createOutputChannel('mssgs');
+  const logger: Logger = {
+    log: (message: string) => outputChannel.appendLine(message),
+    error: (message: string) => outputChannel.appendLine(`[ERROR] ${message}`),
+  };
+
   const manager = new WebviewManager(context.extensionUri);
   const bus = new MessageBus();
-  const cache = createCache(context);
+  const cache = createCache(context, logger);
   const connections = new Map<string, BridgeConnection>();
   const pendingConnections = new Map<string, BridgeConnection>();
   const wizardEngine = new AccountWizardEngine();
+  const bridgeListeners: (() => void)[] = [];
 
   const globalStorageDir = context.globalStorageUri?.fsPath ?? context.extensionPath;
   const conversationToRoom = new Map<string, string>();
@@ -321,58 +339,68 @@ export function activate(context: vscode.ExtensionContext): void {
   }
 
   function wireBridgeEvents(connection: BridgeConnection): void {
-    connection.on('statusChanged', ({ accountId, status, error }) => {
-      console.log(`[mssgs:${connection.service}] status ${status}`, error ?? '');
-      syncAccountStatus(accountId, status, error);
-    });
+    bridgeListeners.push(
+      connection.on('statusChanged', ({ accountId, status, error }) => {
+        logger.log(`[mssgs:${connection.service}] status ${status} ${error ?? ''}`);
+        syncAccountStatus(accountId, status, error);
+      }),
+    );
 
-    connection.on('authPrompt', ({ accountId, prompt }) => {
-      // Find the setup session that owns this pending connection.
-      for (const [setupId, pending] of pendingConnections.entries()) {
-        if (pending.accountId === accountId) {
-          manager.postEvent({
-            type: 'event',
-            eventType: 'wizardAuthPrompt',
-            payload: { setupId, prompt },
-          });
+    bridgeListeners.push(
+      connection.on('authPrompt', ({ accountId, prompt }) => {
+        // Find the setup session that owns this pending connection.
+        for (const [setupId, pending] of pendingConnections.entries()) {
+          if (pending.accountId === accountId) {
+            manager.postEvent({
+              type: 'event',
+              eventType: 'wizardAuthPrompt',
+              payload: { setupId, prompt },
+            });
+            return;
+          }
+        }
+      }),
+    );
+
+    bridgeListeners.push(
+      connection.on('roomsChanged', ({ accountId, rooms }) => {
+        const account = cache?.getAccount(accountId);
+        if (!account) {
           return;
         }
-      }
-    });
 
-    connection.on('roomsChanged', ({ accountId, rooms }) => {
-      const account = cache?.getAccount(accountId);
-      if (!account) {
-        return;
-      }
+        const conversations = rooms.map((room) => {
+          const conversation = roomToConversation(account, room);
+          conversationToRoom.set(conversation.id, room.roomId);
+          return conversation;
+        });
+        const contacts = rooms.map((room) =>
+          senderToContact(account, room.roomId, room.name ?? 'Unknown'),
+        );
 
-      const conversations = rooms.map((room) => {
-        const conversation = roomToConversation(account, room);
-        conversationToRoom.set(conversation.id, room.roomId);
-        return conversation;
-      });
-      const contacts = rooms.map((room) =>
-        senderToContact(account, room.roomId, room.name ?? 'Unknown'),
-      );
+        cache?.syncContacts(contacts);
+        cache?.syncConversations(conversations);
+        manager.postEvent({
+          type: 'event',
+          eventType: 'conversations',
+          payload: cache?.getConversations() ?? conversations,
+        });
+      }),
+    );
 
-      cache?.syncContacts(contacts);
-      cache?.syncConversations(conversations);
-      manager.postEvent({
-        type: 'event',
-        eventType: 'conversations',
-        payload: cache?.getConversations() ?? conversations,
-      });
-    });
+    bridgeListeners.push(
+      connection.on('messagesChanged', ({ accountId, roomId, messages }) => {
+        ingestMessages(accountId, roomId, messages);
+      }),
+    );
 
-    connection.on('messagesChanged', ({ accountId, roomId, messages }) => {
-      ingestMessages(accountId, roomId, messages);
-    });
-
-    connection.on('error', ({ accountId, error }) => {
-      console.error(`[mssgs:${connection.service}] error:`, error);
-      void vscode.window.showErrorMessage(`mssgs error: ${error}`);
-      syncAccountStatus(accountId, 'error', error);
-    });
+    bridgeListeners.push(
+      connection.on('error', ({ accountId, error }) => {
+        logger.error(`[mssgs:${connection.service}] error: ${error}`);
+        void vscode.window.showErrorMessage(`mssgs error: ${error}`);
+        syncAccountStatus(accountId, 'error', error);
+      }),
+    );
   }
 
   function getAccountUsername(session: WizardSession): string {
@@ -409,6 +437,7 @@ export function activate(context: vscode.ExtensionContext): void {
       service as ServiceType,
       result.setupId,
       globalStorageDir,
+      logger,
     );
     wireBridgeEvents(connection);
     pendingConnections.set(result.setupId, connection);
@@ -516,8 +545,33 @@ export function activate(context: vscode.ExtensionContext): void {
     ...commandDisposables,
     ...extrasDisposables,
   );
+
+  extensionState = {
+    cache,
+    connections,
+    pendingConnections,
+    outputChannel,
+  };
 }
 
 export function deactivate(): void {
-  // no-op
+  if (!extensionState) {
+    return;
+  }
+
+  const { cache, connections, pendingConnections, outputChannel } = extensionState;
+
+  for (const connection of connections.values()) {
+    void connection.disconnect();
+  }
+
+  for (const connection of pendingConnections.values()) {
+    void connection.disconnect();
+  }
+
+  connections.clear();
+  pendingConnections.clear();
+  cache?.close();
+  outputChannel.dispose();
+  extensionState = undefined;
 }

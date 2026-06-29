@@ -1,6 +1,10 @@
 import { execFile } from 'node:child_process';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
+import Database from 'better-sqlite3';
+
+type DatabaseInstance = InstanceType<typeof Database>;
+import type { Logger } from '../../shared/logger.js';
 import type {
   BridgeConnection,
   BridgeConnectionEvents,
@@ -40,10 +44,15 @@ export class IMessageConnection
   readonly service = 'imessage';
   private _status: BridgeStatus = 'disconnected';
   private pollTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly logger: Logger | undefined;
   private rooms = new Map<string, BridgeRoomInfo>();
 
-  constructor(public readonly accountId: string) {
+  constructor(
+    public readonly accountId: string,
+    logger?: Logger,
+  ) {
     super();
+    this.logger = logger;
   }
 
   get status(): BridgeStatus {
@@ -64,13 +73,13 @@ export class IMessageConnection
       this.pollTimer = setInterval(() => {
         void this.sync().catch((error: unknown) => {
           const message = error instanceof Error ? error.message : String(error);
-          console.error('[mssgs:iMessage] sync error:', message);
+          this.logger?.error(`[mssgs:iMessage] sync error: ${message}`);
           this.emit('error', { accountId: this.accountId, error: message });
         });
       }, 15_000);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[mssgs:iMessage] connect error:', message);
+      this.logger?.error(`[mssgs:iMessage] connect error: ${message}`);
       this.setStatus('error', message);
       throw error;
     }
@@ -105,21 +114,9 @@ export class IMessageConnection
   }
 
   private async sync(): Promise<void> {
-    const { DatabaseSync } = process.getBuiltinModule('node:sqlite') as {
-      DatabaseSync: new (
-        path: string,
-      ) => {
-        prepare(query: string): {
-          all(): unknown[];
-          run(...params: unknown[]): void;
-        };
-        close(): void;
-      };
-    };
-
-    let db: InstanceType<typeof DatabaseSync> | undefined;
+    let db: DatabaseInstance | undefined;
     try {
-      db = new DatabaseSync(CHAT_DB);
+      db = new Database(CHAT_DB);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (message.includes('unable to open database file')) {

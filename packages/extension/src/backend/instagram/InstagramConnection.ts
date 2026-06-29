@@ -1,4 +1,5 @@
 import { IgApiClient } from 'instagram-private-api';
+import type { Logger } from '../../shared/logger.js';
 import type {
   BridgeConnection,
   BridgeConnectionEvents,
@@ -19,10 +20,15 @@ export class InstagramConnection
   private username = '';
   private password = '';
   private codeResolver: ((code: string) => void) | null = null;
+  private readonly logger: Logger | undefined;
   private rooms = new Map<string, BridgeRoomInfo>();
 
-  constructor(public readonly accountId: string) {
+  constructor(
+    public readonly accountId: string,
+    logger?: Logger,
+  ) {
     super();
+    this.logger = logger;
   }
 
   get status(): BridgeStatus {
@@ -56,7 +62,7 @@ export class InstagramConnection
       await this.syncInbox();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[mssgs:instagram] connect error:', message);
+      this.logger?.error(`[mssgs:instagram] connect error: ${message}`);
       this.setStatus('error', message);
       throw error;
     }

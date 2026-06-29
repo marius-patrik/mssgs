@@ -1,4 +1,4 @@
-import type { DatabaseSync } from 'node:sqlite';
+import type Database from 'better-sqlite3';
 import { MIGRATIONS, type Migration } from './schema.js';
 
 export type { Migration };
@@ -9,7 +9,7 @@ export interface MigrationRecord {
   applied_at: string;
 }
 
-export function runMigrations(db: DatabaseSync): number[] {
+export function runMigrations(db: InstanceType<typeof Database>): number[] {
   db.exec(`
     CREATE TABLE IF NOT EXISTS migrations (
       version INTEGER PRIMARY KEY,
