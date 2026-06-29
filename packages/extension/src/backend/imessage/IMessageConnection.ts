@@ -30,6 +30,7 @@ interface ChatRow {
   chat_id: number;
   display_name: string | null;
   chat_identifier: string | null;
+  handle_count: number;
   msg_id: number;
   text: string | null;
   date: number;
@@ -62,6 +63,13 @@ export class IMessageConnection
   async connect(): Promise<void> {
     if (this._status === 'connected' || this._status === 'connecting') {
       return;
+    }
+
+    if (process.platform !== 'darwin') {
+      const message = 'iMessage is only available on macOS.';
+      this.setStatus('error', message);
+      this.emit('error', { accountId: this.accountId, error: message });
+      throw new Error(message);
     }
 
     this.setStatus('connecting');
@@ -119,26 +127,21 @@ export class IMessageConnection
   }
 
   private async sync(): Promise<void> {
-    let db: DatabaseInstance | undefined;
-    try {
-      db = new Database(CHAT_DB);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes('unable to open database file')) {
-        throw new Error(
-          'mssgs needs Full Disk Access to read iMessage conversations. Grant it to Visual Studio Code in System Settings > Privacy & Security > Full Disk Access, then reload the window.',
-        );
-      }
-      throw error;
-    }
+    const db = await this.openDatabase();
 
     try {
       const stmt = db.prepare(`
-        WITH ranked AS (
+        WITH chat_handles AS (
+          SELECT chat_id, COUNT(DISTINCT handle_id) AS handle_count
+          FROM chat_handle_join
+          GROUP BY chat_id
+        ),
+        ranked AS (
           SELECT
             c.ROWID AS chat_id,
             c.display_name AS display_name,
             c.chat_identifier AS chat_identifier,
+            ch.handle_count AS handle_count,
             m.ROWID AS msg_id,
             m.text AS text,
             m.date AS date,
@@ -146,6 +149,7 @@ export class IMessageConnection
             h.id AS sender,
             ROW_NUMBER() OVER (PARTITION BY c.ROWID ORDER BY m.date DESC) AS rn
           FROM chat c
+          JOIN chat_handles ch ON ch.chat_id = c.ROWID
           JOIN chat_message_join cmj ON cmj.chat_id = c.ROWID
           JOIN message m ON m.ROWID = cmj.message_id
           LEFT JOIN handle h ON m.handle_id = h.ROWID
@@ -160,6 +164,30 @@ export class IMessageConnection
     }
   }
 
+  private async openDatabase(): Promise<DatabaseInstance> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      try {
+        return new Database(CHAT_DB);
+      } catch (error) {
+        lastError = error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes('unable to open database file')) {
+          throw new Error(
+            'mssgs needs Full Disk Access to read iMessage conversations. Grant it to Visual Studio Code in System Settings > Privacy & Security > Full Disk Access, then reload the window.',
+          );
+        }
+        if (message.includes('database is locked')) {
+          this.logger?.log(`[mssgs:imessage] chat.db locked, retrying (${attempt}/5)...`);
+          await new Promise((resolve) => setTimeout(resolve, attempt * 500));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw lastError ?? new Error('Failed to open iMessage database');
+  }
+
   private ingestRows(rows: ChatRow[]): void {
     const roomMessages = new Map<string, BridgeMessageInfo[]>();
 
@@ -169,12 +197,13 @@ export class IMessageConnection
       const sender = row.is_from_me ? 'me' : row.sender ?? 'unknown';
       const timestamp = appleDateToTimestamp(row.date);
 
+      const isDM = row.handle_count <= 1;
       this.rooms.set(roomId, {
         roomId,
         name: roomName,
         avatarUrl: null,
-        isDM: true,
-        memberCount: 2,
+        isDM,
+        memberCount: isDM ? 2 : row.handle_count + 1,
         lastEventTimestamp: timestamp,
       });
 
