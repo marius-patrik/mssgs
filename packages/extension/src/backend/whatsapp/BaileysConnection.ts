@@ -110,18 +110,30 @@ export class BaileysConnection
   }
 
   async disconnect(): Promise<void> {
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
-    if (this.historyCheckTimer) {
-      clearTimeout(this.historyCheckTimer);
-      this.historyCheckTimer = null;
-    }
+    this.stopTimers();
     if (this.socket) {
       this.socket.end(undefined);
       this.socket = null;
     }
+    this.setStatus('disconnected');
+  }
+
+  async logout(): Promise<void> {
+    this.stopTimers();
+    if (this.socket) {
+      try {
+        await this.socket.logout();
+      } catch {
+        // ignore
+      }
+      this.socket = null;
+    }
+    try {
+      fs.rmSync(this.authPath, { recursive: true, force: true });
+    } catch {
+      // ignore
+    }
+    this.rooms.clear();
     this.setStatus('disconnected');
   }
 
@@ -152,6 +164,17 @@ export class BaileysConnection
   private setStatus(status: BridgeStatus, error?: string): void {
     this._status = status;
     this.emit('statusChanged', { accountId: this.accountId, status, error });
+  }
+
+  private stopTimers(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.historyCheckTimer) {
+      clearTimeout(this.historyCheckTimer);
+      this.historyCheckTimer = null;
+    }
   }
 
   private scheduleHistoryCheck(): void {

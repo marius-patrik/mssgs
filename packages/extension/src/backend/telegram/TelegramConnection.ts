@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { TelegramClient } from 'telegram';
+import { Api, TelegramClient } from 'telegram';
 import { StringSession } from 'telegram/sessions/index.js';
 import type { EncryptionService } from '../../services/EncryptionService.js';
 import type { Logger } from '../../shared/logger.js';
@@ -97,20 +97,44 @@ export class TelegramConnection
 
   async disconnect(): Promise<void> {
     if (this.client) {
-      if (this.encryption) {
-        const sessionString = (this.client.session as unknown as StringSession).save();
-        const sessionPath = path.join(this.storageDir, `telegram-${this.accountId}.enc`);
-        try {
-          await this.encryption.encryptToFile(sessionString, sessionPath);
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          this.logger?.error(`[mssgs:telegram] failed to encrypt session: ${message}`);
-        }
-      }
+      await this.saveSession();
       await this.client.disconnect();
       this.client = null;
     }
     this.setStatus('disconnected');
+  }
+
+  async logout(): Promise<void> {
+    if (this.client) {
+      try {
+        await this.client.invoke(new Api.auth.LogOut());
+      } catch {
+        // ignore
+      }
+      await this.client.disconnect();
+      this.client = null;
+    }
+    try {
+      fs.rmSync(path.join(this.storageDir, `telegram-${this.accountId}.enc`), { force: true });
+    } catch {
+      // ignore
+    }
+    this.rooms.clear();
+    this.setStatus('disconnected');
+  }
+
+  private async saveSession(): Promise<void> {
+    if (!this.client || !this.encryption) {
+      return;
+    }
+    const sessionString = (this.client.session as unknown as StringSession).save();
+    const sessionPath = path.join(this.storageDir, `telegram-${this.accountId}.enc`);
+    try {
+      await this.encryption.encryptToFile(sessionString, sessionPath);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger?.error(`[mssgs:telegram] failed to encrypt session: ${message}`);
+    }
   }
 
   getRooms(): BridgeRoomInfo[] {

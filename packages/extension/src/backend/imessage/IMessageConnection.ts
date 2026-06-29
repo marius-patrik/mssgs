@@ -93,6 +93,11 @@ export class IMessageConnection
     this.setStatus('disconnected');
   }
 
+  async logout(): Promise<void> {
+    await this.disconnect();
+    this.rooms.clear();
+  }
+
   getRooms(): BridgeRoomInfo[] {
     return Array.from(this.rooms.values());
   }

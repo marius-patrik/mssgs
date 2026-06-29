@@ -67,6 +67,7 @@ export interface BridgeConnection extends TypedEmitter<BridgeConnectionEvents> {
   readonly status: BridgeStatus;
   connect(credentials?: BridgeCredentials): Promise<void>;
   disconnect(): Promise<void>;
+  logout(): Promise<void>;
   getRooms(): BridgeRoomInfo[];
   sendMessage(roomId: string, text: string): Promise<BridgeMessageInfo>;
   sendCode?(code: string): Promise<void>;
