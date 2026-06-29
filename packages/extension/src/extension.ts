@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
@@ -75,14 +76,16 @@ function createAccount(id: string, service: ServiceType, username: string): Acco
 }
 
 function stableUuid(input: string): string {
-  let hash = 0;
-  for (let i = 0; i < input.length; i++) {
-    const char = input.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash |= 0;
-  }
-  const hex = Math.abs(hash).toString(16).padStart(8, '0');
-  return `${hex.slice(0, 8)}-${hex.slice(0, 4)}-4${hex.slice(1, 4)}-a${hex.slice(0, 3)}-${hex.repeat(2).slice(0, 12)}`;
+  const hash = createHash('sha256').update(input).digest();
+  const hex = hash.toString('hex');
+  // Deterministic UUID v4-like format derived from the first 128 bits of the hash.
+  return [
+    hex.slice(0, 8),
+    hex.slice(8, 12),
+    `4${hex.slice(13, 16)}`,
+    `${((Number.parseInt(hex[16], 16) & 0x3) | 0x8).toString(16)}${hex.slice(17, 20)}`,
+    hex.slice(20, 32),
+  ].join('-');
 }
 
 function roomToConversation(account: Account, room: BridgeRoomInfo): Conversation {
@@ -229,20 +232,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Register request handlers for the webview to call.
   bus.registerHandler('ping', () => ({ ok: true }));
   bus.registerHandler('getAccounts', () => ({ accounts: cache?.getAccounts() ?? [] }));
-  bus.registerHandler('removeAccount', ({ accountId }) => {
+  bus.registerHandler('removeAccount', async ({ accountId }) => {
     const connection = connections.get(accountId);
-    void connection?.disconnect();
+    await connection?.logout();
     connections.delete(accountId);
 
     const account = cache?.getAccount(accountId);
     if (account) {
       if (account.service === 'whatsapp') {
-        fs.rmSync(path.join(globalStorageDir, `baileys-${accountId}`), {
+        fs.rmSync(path.join(globalStorageDir, `baileys-${accountId}.enc`), {
           recursive: true,
           force: true,
         });
       } else if (account.service === 'telegram') {
-        fs.rmSync(path.join(globalStorageDir, `telegram-${accountId}`), {
+        fs.rmSync(path.join(globalStorageDir, `telegram-${accountId}.enc`), {
           recursive: true,
           force: true,
         });

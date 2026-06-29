@@ -73,6 +73,21 @@ export class InstagramConnection
     this.setStatus('disconnected');
   }
 
+  async logout(): Promise<void> {
+    if (this.client) {
+      try {
+        await this.client.account.logout();
+      } catch {
+        // ignore
+      }
+      this.client = null;
+    }
+    this.username = '';
+    this.password = '';
+    this.rooms.clear();
+    this.setStatus('disconnected');
+  }
+
   getRooms(): BridgeRoomInfo[] {
     return Array.from(this.rooms.values());
   }
