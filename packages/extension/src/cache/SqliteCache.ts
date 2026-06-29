@@ -1,8 +1,5 @@
-import type { DatabaseSync } from 'node:sqlite';
-
-function getSqlite(): typeof import('node:sqlite') {
-  return process.getBuiltinModule('node:sqlite') as typeof import('node:sqlite');
-}
+import Database from 'better-sqlite3';
+import type { Logger } from '../shared/logger.js';
 import {
   AccountSchema,
   ContactSchema,
@@ -21,6 +18,8 @@ import type {
   ReadStateRow,
 } from './types.js';
 
+type DatabaseInstance = InstanceType<typeof Database>;
+
 export interface ReadState {
   conversationId: string;
   lastReadMessageId: string | null;
@@ -30,18 +29,21 @@ export interface ReadState {
 
 export interface SqliteCacheOptions {
   enableWal?: boolean;
+  logger?: Logger;
 }
 
 const booleanToInt = (value: boolean): 0 | 1 => (value ? 1 : 0);
 const intToBoolean = (value: 0 | 1 | number): boolean => value === 1;
 
 export class SqliteCache {
-  private readonly db: DatabaseSync;
+  private readonly db: DatabaseInstance;
+  private readonly logger: Logger | undefined;
   private transactionDepth = 0;
+  private isClosed = false;
 
   constructor(dbPath: string, options: SqliteCacheOptions = {}) {
-    const { DatabaseSync } = getSqlite();
-    this.db = new DatabaseSync(dbPath);
+    this.logger = options.logger;
+    this.db = new Database(dbPath);
 
     if (options.enableWal !== false && dbPath !== ':memory:') {
       this.db.exec('PRAGMA journal_mode = WAL');
@@ -52,7 +54,18 @@ export class SqliteCache {
   }
 
   close(): void {
-    this.db.close();
+    if (this.isClosed) {
+      return;
+    }
+
+    try {
+      this.db.close();
+      this.isClosed = true;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger?.error(`Failed to close SQLite cache: ${message}`);
+      throw error;
+    }
   }
 
   // ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import { TelegramClient } from 'telegram';
+import type { Logger } from '../../shared/logger.js';
 import type {
   BridgeAuthPrompt,
   BridgeConnection,
@@ -22,13 +23,16 @@ export class TelegramConnection
   private apiId = 0;
   private apiHash = '';
   private codeResolver: ((code: string) => void) | null = null;
+  private readonly logger: Logger | undefined;
   private rooms = new Map<string, BridgeRoomInfo>();
 
   constructor(
     public readonly accountId: string,
     private readonly storageDir: string,
+    logger?: Logger,
   ) {
     super();
+    this.logger = logger;
   }
 
   get status(): BridgeStatus {
@@ -68,7 +72,7 @@ export class TelegramConnection
       await this.syncDialogs();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      console.error('[mssgs:telegram] connect error:', message);
+      this.logger?.error(`[mssgs:telegram] connect error: ${message}`);
       this.setStatus('error', message);
       throw error;
     }
@@ -133,7 +137,7 @@ export class TelegramConnection
       return;
     }
 
-    console.log('[mssgs:telegram] syncing dialogs');
+    this.logger?.log('[mssgs:telegram] syncing dialogs');
     const dialogs = await this.client.getDialogs({ limit: 200 });
     const rooms: BridgeRoomInfo[] = [];
 
